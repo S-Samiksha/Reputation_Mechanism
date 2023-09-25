@@ -1,21 +1,21 @@
 // SPDX-License-Identifier: MIT
-
 pragma solidity ^0.8.21;
 
 contract Store {
-    uint256 public totalSellers = 0;
-    uint256 public totalBuyers = 123;
 
 
-    function retrieve() public view returns (uint256) {
-        return totalBuyers;
-    }
+    uint256 private totalSellers = 0;
+    uint256 private totalBuyers = 0;
+
+
+    //----- Structs -----
 
     struct Product {
         uint256 ProductID;
         string productName;
-        address sellerAddress; // The product object has a sellerAddress
-        uint256 productPrice; //in wei TODO: convertable to USD
+        address sellerAddress; // The product object has a sellerAddress reference 
+        uint256 productPrice; //in wei 
+        uint256 totalSold;
         bool isExist; //flag to determin whether the product exists TODO: figure out a better way
     }
 
@@ -33,6 +33,7 @@ contract Store {
         string buyerName;
         uint256 buyerID; //TODO: figure out the difference between uint and uint256
         bool isExist; //flag to determine whether the buyer exists TODO: figure out a better way
+        Product[] purchasedProducts;
     }
 
     //----- Mappings -----
@@ -41,8 +42,9 @@ contract Store {
     mapping(address => Seller) public sellersList;
     mapping(address => Buyer) public buyersList;
 
-    // Mapping buyerAddress to array of Products that they bought --> TODO: can we merge this with the object itself?
-    mapping(address => Product[]) public buyerPurchasedProducts;
+    // TODO: can we merge this with the object itself?
+    // Mapping buyerAddress to array of Products that they bought
+    // mapping(address => Product[]) public buyerPurchasedProducts;
 
     function createSeller(string memory _sellerName) public {
         require(
@@ -71,8 +73,8 @@ contract Store {
         newBuyer.buyerName = _buyerName;
         newBuyer.buyerID = ++totalBuyers;
         newBuyer.isExist = true;
+        buyersList[msg.sender] = newBuyer; //Is this necessary 
 
-        buyersList[msg.sender] = newBuyer;
     }
 
     function uploadProduct(string memory _productName, uint256 price) public {
@@ -88,39 +90,100 @@ contract Store {
             currentSeller.totalProducts
         ];
 
-        newProduct.ProductID = currentSeller.totalProducts;
+        newProduct.ProductID = ++currentSeller.totalProducts;
         newProduct.productName = _productName;
         newProduct.sellerAddress = msg.sender;
         newProduct.productPrice = price;
+        newProduct.totalSold = 0;
         newProduct.isExist = true;
+
         currentSeller.sellerProducts[currentSeller.totalProducts] = newProduct;
-        currentSeller.totalProducts++;
+    }
+
+    
+
+
+    function purchaseProduct(uint256 productID, address payable sellAddress) public payable{
+        require(buyersList[msg.sender].isExist, "This buyer does not exist!");
+        require(sellersList[sellAddress].sellerProducts[productID].isExist, "The Product does not exist!");
+        require(msg.value==sellersList[sellAddress].sellerProducts[productID].productPrice, "Ethers not enough/too much to buy the product!");
+
+        //TODO: figure out the gas txn fee 
+
+        (bool callSuccess, ) = sellAddress.call{value: msg.value}("");
+        require(callSuccess, "Failed to send ether");
+
+        buyersList[msg.sender].purchasedProducts.push(sellersList[sellAddress].sellerProducts[productID]);
+
+        sellersList[sellAddress].sellerProducts[productID].totalSold++;
+
+
+    }
+
+
+
+
+
+    /* View and Pure Functions */
+
+    function retrieveTotalBuyers() public view returns (uint256) {
+        return totalBuyers;
+    }
+
+    function retrieveTotalSellers() public view returns (uint256) {
+        return totalSellers;
     }
 
     function viewProductPrice(
-        address _sellerAdd,
+        address _sellerAddress,
         uint256 _productID
     ) public view returns (uint256) {
         //check whether the seller exists
         require(
-            sellersList[_sellerAdd].isExist,
+            sellersList[_sellerAddress].isExist,
             "Seller with this wallet does not exists! "
         );
         //check whether the product exists
         require(
-            sellersList[_sellerAdd].sellerProducts[_productID].isExist,
+            sellersList[_sellerAddress].sellerProducts[_productID].isExist,
             "Seller with this wallet does not exists! "
         );
         //return the price
-        return sellersList[_sellerAdd].sellerProducts[_productID].productPrice;
+        return sellersList[_sellerAddress].sellerProducts[_productID].productPrice;
     }
 
-    /*
-    TODO:
-    purchase product 
-    Leave a review 
-    Split based on OODP
+
+    function viewProductSold(
+        address _sellerAddress,
+        uint256 _productID
+    ) public view returns (uint256) {
+        //check whether the seller exists
+        require(
+            sellersList[_sellerAddress].isExist,
+            "Seller with this wallet does not exists! "
+        );
+        //check whether the product exists
+        require(
+            sellersList[_sellerAddress].sellerProducts[_productID].isExist,
+            "Seller with this wallet does not exists! "
+        );
+        //return the price
+        return sellersList[_sellerAddress].sellerProducts[_productID].totalSold;
+    }
+
+    function viewProductBought(
+        address _buyerAddress,
+        uint256 _txnID
+    ) public view returns (uint256) {
+        //check whether the seller exists
+        require(
+            buyersList[_buyerAddress].isExist,
+            "Buyer with this wallet does not exists! "
+        );
+        //check whether the product exists
+        //return the price
+        return buyersList[_buyerAddress].purchasedProducts[_txnID].ProductID;
+    }
 
 
-    */
 }
