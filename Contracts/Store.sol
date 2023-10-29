@@ -11,7 +11,7 @@ contract Store {
     //----- Structs -----
 
     struct Product {
-        uint256 ProductID;
+        uint256 productID;
         string productName;
         address sellerAddress; // The product object has a sellerAddress reference 
         uint256 productPrice; //in wei 
@@ -39,12 +39,21 @@ contract Store {
     //----- Mappings -----
 
     //Maps user address to Seller or Buyer account structs
-    mapping(address => Seller) public sellersList;
-    mapping(address => Buyer) public buyersList;
-
     // TODO: can we merge this with the object itself?
     // Mapping buyerAddress to array of Products that they bought
     // mapping(address => Product[]) public buyerPurchasedProducts;
+
+    mapping(address => Seller) public sellersList;
+    mapping(address => Buyer) public buyersList;
+
+
+    //-----Events -----
+    event createSellerEvent(string sellerName, address sellerAddress, uint256 sellerID);
+    event createBuyerEvent(string buyerName, address buyerAddress, uint256 buyerID);
+    event uploadProductEvent(string productName, uint256 price, uint256 productID, address sellerAddress, uint256 sellerID);
+    event purchasedProductsEvent(uint256 productID, address sellerAddress, address buyerAddress, uint256 price);
+
+
 
     function createSeller(string memory _sellerName) public {
         require(
@@ -60,8 +69,12 @@ contract Store {
         newSeller.totalProducts = 0;
 
         // sellersList[msg.sender] = newSeller;
+        emit createSellerEvent(newSeller.sellerName, newSeller.sellerAddress, newSeller.sellerID);
     }
 
+
+
+    
     function createBuyer(string memory _buyerName) public {
         require(
             !buyersList[msg.sender].isExist,
@@ -75,8 +88,12 @@ contract Store {
         newBuyer.isExist = true;
         buyersList[msg.sender] = newBuyer; //Is this necessary 
 
+        emit createBuyerEvent(newBuyer.buyerName, newBuyer.buyerAddress, newBuyer.buyerID);
+
     }
 
+
+   
     function uploadProduct(string memory _productName, uint256 price) public {
         //only the currently connected wallet + must be registered seller can create products
         require(
@@ -90,7 +107,7 @@ contract Store {
             currentSeller.totalProducts
         ];
 
-        newProduct.ProductID = ++currentSeller.totalProducts;
+        newProduct.productID = ++currentSeller.totalProducts;
         newProduct.productName = _productName;
         newProduct.sellerAddress = msg.sender;
         newProduct.productPrice = price;
@@ -98,11 +115,13 @@ contract Store {
         newProduct.isExist = true;
 
         currentSeller.sellerProducts[currentSeller.totalProducts] = newProduct;
+
+        emit uploadProductEvent(newProduct.productName, newProduct.productPrice, newProduct.productID, newProduct.sellerAddress, currentSeller.sellerID);
     }
 
     
 
-
+    
     function purchaseProduct(uint256 productID, address payable sellAddress) public payable{
         require(buyersList[msg.sender].isExist, "This buyer does not exist!");
         require(sellersList[sellAddress].sellerProducts[productID].isExist, "The Product does not exist!");
@@ -116,7 +135,7 @@ contract Store {
         buyersList[msg.sender].purchasedProducts.push(sellersList[sellAddress].sellerProducts[productID]);
 
         sellersList[sellAddress].sellerProducts[productID].totalSold++;
-
+        emit purchasedProductsEvent(productID, sellerAddress, msg.sender, sellersList[sellAddress].sellerProducts[productID].productPrice);
 
     }
 
