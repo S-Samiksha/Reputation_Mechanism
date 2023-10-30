@@ -62,11 +62,13 @@ contract Store {
         address sellerAddress,
         uint256 sellerID
     );
+
     event createBuyerEvent(
         string buyerName,
         address buyerAddress,
         uint256 buyerID
     );
+
     event uploadProductEvent(
         string productName,
         uint256 price,
@@ -74,12 +76,23 @@ contract Store {
         address sellerAddress,
         uint256 sellerID
     );
+
     event purchasedProductsEvent(
         uint256 txnID,
         uint256 productID,
         address sellerAddress,
         address buyerAddress,
         uint256 price
+    );
+
+    event buyerReviewEvent(
+        uint256 productID,
+        address sellerAddress,
+        address buyerAddress,
+        uint256 buyerRating,
+        uint256 timeStamp,
+        uint256 finalProductRating,
+        uint256 totalReviews
     );
 
     function createSeller(string memory _sellerName) public {
@@ -205,16 +218,6 @@ contract Store {
             sellersList[sellerAddress].sellerProducts[productID].productPrice
         );
     }
-
-    event buyerReviewEvent(
-        uint256 productID,
-        address sellerAddress,
-        address buyerAddress,
-        uint256 buyerRating,
-        uint256 timeStamp,
-        uint256 finalProductRating,
-        uint256 totalReviews
-    );
 
     function buyerReview(uint256 buyerRating, uint256 txnID) public {
         require(buyersList[msg.sender].isExist, "This buyer does not exist!");

@@ -8,6 +8,7 @@ require("@nomiclabs/hardhat-ethers");
 const SEPOLIA_RPC_URL = process.env.SEPOLIA_RPC_URL;
 const SEPOLIA_PRIVATE_KEY = process.env.SEPOLIA_PRIVATE_KEY || "key";
 const SEPOLIA_PRIVATE_KEY_2 = process.env.SEPOLIA_PRIVATE_KEY_2 || "key";
+const SEPOLIA_PRIVATE_KEY_3 = process.env.SEPOLIA_PRIVATE_KEY_2 || "key";
 const ETHERSCAN_API_KEY = process.env.ETHERSCAN_API_KEY || "key";
 /** @type import('hardhat/config').HardhatUserConfig */
 

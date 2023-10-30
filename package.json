@@ -50,7 +50,8 @@
     "@chainlink/token": "^1.1.0",
     "@openzeppelin/contracts": "^5.0.0",
     "babel-eslint": "^10.1.0",
-    "dotenv": "^10.0.0"
+    "dotenv": "^10.0.0",
+    "prompt-sync": "^4.2.0"
   },
   "mocha": {
     "timeout": 10000000
