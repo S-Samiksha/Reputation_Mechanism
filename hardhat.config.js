@@ -51,6 +51,9 @@ module.exports = {
     userThree: {
       default: 3,
     },
+    userFour: {
+      default: 4,
+    },
     //you can even add the different users here
   },
   mocha: {

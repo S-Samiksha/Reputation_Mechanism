@@ -86,7 +86,7 @@ contract Store {
     function createSeller(string memory _sellerName) public {
         require(
             !sellersList[msg.sender].isExist,
-            "Seller with this wallet already exists! "
+            "Seller with this wallet already exists!"
         );
         Seller storage newSeller = sellersList[msg.sender]; //get the object
         //set the variables
@@ -109,7 +109,7 @@ contract Store {
     function createBuyer(string memory _buyerName) public {
         require(
             !buyersList[msg.sender].isExist,
-            "Buyer with this wallet already exists! "
+            "Buyer with this wallet already exists!"
         );
         Buyer storage newBuyer = buyersList[msg.sender]; //get the object
         //set the variables
@@ -131,13 +131,13 @@ contract Store {
         //only the currently connected wallet + must be registered seller can create products
         require(
             sellersList[msg.sender].isExist,
-            "Seller with this wallet does not exists! "
+            "Seller with this wallet does not exists!"
         );
 
         Seller storage currentSeller = sellersList[msg.sender]; //TODO: why is it storage?
 
         Product storage newProduct = currentSeller.sellerProducts[
-            currentSeller.totalProducts
+            ++currentSeller.totalProducts
         ];
 
         newProduct.productID = currentSeller.totalProducts;
@@ -148,7 +148,6 @@ contract Store {
         newProduct.isExist = true;
 
         currentSeller.sellerProducts[currentSeller.totalProducts] = newProduct;
-        currentSeller.totalProducts++;
 
         emit uploadProductEvent(
             newProduct.productName,
@@ -161,7 +160,7 @@ contract Store {
 
     function purchaseProduct(
         uint256 productID,
-        address payable sellerAddress
+        address sellerAddress
     ) public payable {
         require(buyersList[msg.sender].isExist, "This buyer does not exist!");
         require(
@@ -178,10 +177,12 @@ contract Store {
 
         //TODO: figure out the gas txn fee
 
-        (bool callSuccess, ) = sellerAddress.call{value: msg.value}("");
+        (bool callSuccess, ) = (payable(sellerAddress)).call{value: msg.value}(
+            ""
+        );
         require(callSuccess, "Failed to send ether");
 
-        uint256 txnID = buyersList[msg.sender].numOfTxn;
+        uint256 txnID = ++buyersList[msg.sender].numOfTxn;
 
         Transaction storage newTxn = buyersList[msg.sender].txnMade[txnID];
         newTxn.txnID = txnID;
@@ -192,7 +193,6 @@ contract Store {
         newTxn.reviewed = false;
         newTxn.isExist = true;
         buyersList[msg.sender].txnMade[txnID] = newTxn;
-        buyersList[msg.sender].numOfTxn++;
 
         sellersList[sellerAddress].sellerProducts[productID].totalSold++;
         sellersList[sellerAddress].totalRevenue += msg.value;
@@ -219,10 +219,12 @@ contract Store {
             .txnMade[txnID]
             .purchasedProduct
             .sellerAddress;
+
         uint256 productID = buyersList[msg.sender]
             .txnMade[txnID]
             .purchasedProduct
             .productID;
+
         sellersList[sellerAddress].sellerProducts[productID].review =
             ((buyersList[msg.sender].txnMade[txnID].purchasedProduct.review *
                 buyersList[msg.sender]
@@ -250,6 +252,42 @@ contract Store {
         return totalSellers;
     }
 
+    function retrieveSellerID(
+        address _sellerAddress
+    ) public view returns (uint256) {
+        require(
+            sellersList[_sellerAddress].isExist,
+            "Seller with this wallet does not exists! "
+        );
+        return sellersList[_sellerAddress].sellerID;
+    }
+
+    function retrieveSellerName(
+        address _sellerAddress
+    ) public view returns (string memory) {
+        require(
+            sellersList[_sellerAddress].isExist,
+            "Seller with this wallet does not exists! "
+        );
+        return sellersList[_sellerAddress].sellerName;
+    }
+
+    function retrieveBuyerID(
+        address _buyerAddress
+    ) public view returns (uint256) {
+        require(
+            buyersList[_buyerAddress].isExist,
+            "Buyer with this wallet does not exists! "
+        );
+        return buyersList[_buyerAddress].buyerID;
+    }
+
+    function retrieveBuyerName(
+        address buyerAddress
+    ) public view returns (string memory) {
+        return buyersList[buyerAddress].buyerName;
+    }
+
     function viewProductPrice(
         address _sellerAddress,
         uint256 _productID
@@ -262,17 +300,17 @@ contract Store {
         //check whether the product exists
         require(
             sellersList[_sellerAddress].sellerProducts[_productID].isExist,
-            "Seller with this wallet does not exists! "
+            "Seller with this product does not exists! "
         );
         //return the price
         return
             sellersList[_sellerAddress].sellerProducts[_productID].productPrice;
     }
 
-    function viewProductSold(
+    function viewProductName(
         address _sellerAddress,
         uint256 _productID
-    ) public view returns (uint256) {
+    ) public view returns (string memory) {
         //check whether the seller exists
         require(
             sellersList[_sellerAddress].isExist,
@@ -284,7 +322,8 @@ contract Store {
             "ProductID in the seller does not exists! "
         );
         //return the price
-        return sellersList[_sellerAddress].sellerProducts[_productID].totalSold;
+        return
+            sellersList[_sellerAddress].sellerProducts[_productID].productName;
     }
 
     function viewProductReview(
@@ -306,13 +345,13 @@ contract Store {
         return sellersList[_sellerAddress].sellerProducts[_productID].review;
     }
 
-    function viewTransactions(
+    function viewTransactions_ProductID(
         address _buyerAddress,
         uint256 _txnID
     ) public view returns (uint256) {
         require(
             buyersList[_buyerAddress].isExist,
-            "Seller with this wallet does not exists! "
+            "Buyer with this wallet does not exists! "
         );
 
         require(
@@ -326,5 +365,31 @@ contract Store {
                 .txnMade[_txnID]
                 .purchasedProduct
                 .productID;
+    }
+
+    function viewTransactions_SellerID(
+        address _buyerAddress,
+        uint256 _txnID
+    ) public view returns (uint256) {
+        require(
+            buyersList[_buyerAddress].isExist,
+            "Buyer with this wallet does not exists! "
+        );
+
+        require(
+            buyersList[_buyerAddress].txnMade[_txnID].isExist,
+            "Txn ID in the seller does not exists! "
+        );
+        //check whether the product exists
+        //return the price
+        Product memory productBought = buyersList[_buyerAddress]
+            .txnMade[_txnID]
+            .purchasedProduct;
+
+        address sellerAddress = productBought.sellerAddress;
+
+        uint256 sellerID = sellersList[sellerAddress].sellerID;
+
+        return sellerID;
     }
 }
