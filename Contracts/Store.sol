@@ -14,6 +14,16 @@ contract Store {
         uint256 productPrice; //in wei
         uint256 totalSold;
         bool isExist; //flag to determin whether the product exists TODO: figure out a better way
+        uint256 numOfReviewsGiven;
+        uint256 review;
+    }
+
+    struct Transaction {
+        uint256 txnID;
+        uint256 timeStamp;
+        Product purchasedProduct;
+        bool reviewed;
+        bool isExist;
     }
 
     struct Seller {
@@ -23,6 +33,8 @@ contract Store {
         bool isExist; //flag to determine whether the Seller exists TODO: find a better way
         mapping(uint256 => Product) sellerProducts; //using the productID to obtain the product ; TODO: can we use a string instead?
         uint256 totalProducts;
+        uint256 totalRevenue;
+        uint256 numOfSales;
     }
 
     struct Buyer {
@@ -30,7 +42,9 @@ contract Store {
         string buyerName;
         uint256 buyerID; //TODO: figure out the difference between uint and uint256
         bool isExist; //flag to determine whether the buyer exists TODO: figure out a better way
-        Product[] purchasedProducts;
+        mapping(uint256 => Transaction) txnMade;
+        uint256 numOfTxn;
+        uint256 numOfReviewsGiven;
     }
 
     //----- Mappings -----
@@ -62,6 +76,7 @@ contract Store {
         uint256 sellerID
     );
     event purchasedProductsEvent(
+        uint256 txnID,
         uint256 productID,
         address sellerAddress,
         address buyerAddress,
@@ -80,6 +95,8 @@ contract Store {
         newSeller.sellerID = ++totalSellers;
         newSeller.isExist = true;
         newSeller.totalProducts = 0;
+        newSeller.totalRevenue = 0;
+        newSeller.numOfSales = 0;
 
         // sellersList[msg.sender] = newSeller;
         emit createSellerEvent(
@@ -100,7 +117,8 @@ contract Store {
         newBuyer.buyerName = _buyerName;
         newBuyer.buyerID = ++totalBuyers;
         newBuyer.isExist = true;
-        buyersList[msg.sender] = newBuyer; //Is this necessary
+        newBuyer.numOfReviewsGiven = 0;
+        newBuyer.numOfTxn = 0;
 
         emit createBuyerEvent(
             newBuyer.buyerName,
@@ -122,7 +140,7 @@ contract Store {
             currentSeller.totalProducts
         ];
 
-        newProduct.productID = ++currentSeller.totalProducts;
+        newProduct.productID = currentSeller.totalProducts;
         newProduct.productName = _productName;
         newProduct.sellerAddress = msg.sender;
         newProduct.productPrice = price;
@@ -130,6 +148,7 @@ contract Store {
         newProduct.isExist = true;
 
         currentSeller.sellerProducts[currentSeller.totalProducts] = newProduct;
+        currentSeller.totalProducts++;
 
         emit uploadProductEvent(
             newProduct.productName,
@@ -142,35 +161,83 @@ contract Store {
 
     function purchaseProduct(
         uint256 productID,
-        address payable sellAddress
+        address payable sellerAddress
     ) public payable {
         require(buyersList[msg.sender].isExist, "This buyer does not exist!");
         require(
-            sellersList[sellAddress].sellerProducts[productID].isExist,
+            sellersList[sellerAddress].sellerProducts[productID].isExist,
             "The Product does not exist!"
         );
         require(
             msg.value ==
-                sellersList[sellAddress].sellerProducts[productID].productPrice,
+                sellersList[sellerAddress]
+                    .sellerProducts[productID]
+                    .productPrice,
             "Ethers not enough/too much to buy the product!"
         );
 
         //TODO: figure out the gas txn fee
 
-        (bool callSuccess, ) = sellAddress.call{value: msg.value}("");
+        (bool callSuccess, ) = sellerAddress.call{value: msg.value}("");
         require(callSuccess, "Failed to send ether");
 
-        buyersList[msg.sender].purchasedProducts.push(
-            sellersList[sellAddress].sellerProducts[productID]
+        uint256 txnID = buyersList[msg.sender].numOfTxn;
+
+        Transaction storage newTxn = buyersList[msg.sender].txnMade[txnID];
+        newTxn.txnID = txnID;
+        newTxn.timeStamp = block.timestamp;
+        newTxn.purchasedProduct = sellersList[sellerAddress].sellerProducts[
+            productID
+        ]; //push the sellers product into the transaction list
+        newTxn.reviewed = false;
+        newTxn.isExist = true;
+        buyersList[msg.sender].txnMade[txnID] = newTxn;
+        buyersList[msg.sender].numOfTxn++;
+
+        sellersList[sellerAddress].sellerProducts[productID].totalSold++;
+        sellersList[sellerAddress].totalRevenue += msg.value;
+        sellersList[sellerAddress].numOfSales += 1;
+
+        emit purchasedProductsEvent(
+            txnID,
+            productID,
+            sellerAddress,
+            msg.sender,
+            sellersList[sellerAddress].sellerProducts[productID].productPrice
+        );
+    }
+
+    function buyerReview(uint256 buyerRating, uint256 txnID) public {
+        require(buyersList[msg.sender].isExist, "This buyer does not exist!");
+
+        require(
+            buyersList[msg.sender].txnMade[txnID].isExist,
+            "Buyer does not have this transaction ID"
         );
 
-        sellersList[sellAddress].sellerProducts[productID].totalSold++;
-        emit purchasedProductsEvent(
-            productID,
-            sellAddress,
-            msg.sender,
-            sellersList[sellAddress].sellerProducts[productID].productPrice
-        );
+        address sellerAddress = buyersList[msg.sender]
+            .txnMade[txnID]
+            .purchasedProduct
+            .sellerAddress;
+        uint256 productID = buyersList[msg.sender]
+            .txnMade[txnID]
+            .purchasedProduct
+            .productID;
+        sellersList[sellerAddress].sellerProducts[productID].review =
+            ((buyersList[msg.sender].txnMade[txnID].purchasedProduct.review *
+                buyersList[msg.sender]
+                    .txnMade[txnID]
+                    .purchasedProduct
+                    .numOfReviewsGiven) + buyerRating) /
+            (buyersList[msg.sender]
+                .txnMade[txnID]
+                .purchasedProduct
+                .numOfReviewsGiven + 1);
+
+        buyersList[msg.sender]
+            .txnMade[txnID]
+            .purchasedProduct
+            .numOfReviewsGiven++;
     }
 
     /* View and Pure Functions */
@@ -214,23 +281,50 @@ contract Store {
         //check whether the product exists
         require(
             sellersList[_sellerAddress].sellerProducts[_productID].isExist,
-            "Seller with this wallet does not exists! "
+            "ProductID in the seller does not exists! "
         );
         //return the price
         return sellersList[_sellerAddress].sellerProducts[_productID].totalSold;
     }
 
-    function viewProductBought(
-        address _buyerAddress,
-        uint256 _txnID
+    function viewProductReview(
+        address _sellerAddress,
+        uint256 _productID
     ) public view returns (uint256) {
         //check whether the seller exists
         require(
-            buyersList[_buyerAddress].isExist,
-            "Buyer with this wallet does not exists! "
+            sellersList[_sellerAddress].isExist,
+            "Seller with this wallet does not exists! "
+        );
+
+        require(
+            sellersList[_sellerAddress].sellerProducts[_productID].isExist,
+            "ProductID in the seller does not exists! "
         );
         //check whether the product exists
         //return the price
-        return buyersList[_buyerAddress].purchasedProducts[_txnID].productID;
+        return sellersList[_sellerAddress].sellerProducts[_productID].review;
+    }
+
+    function viewTransactions(
+        address _buyerAddress,
+        uint256 _txnID
+    ) public view returns (uint256) {
+        require(
+            buyersList[_buyerAddress].isExist,
+            "Seller with this wallet does not exists! "
+        );
+
+        require(
+            buyersList[_buyerAddress].txnMade[_txnID].isExist,
+            "Txn ID in the seller does not exists! "
+        );
+        //check whether the product exists
+        //return the price
+        return
+            buyersList[_buyerAddress]
+                .txnMade[_txnID]
+                .purchasedProduct
+                .productID;
     }
 }
