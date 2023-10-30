@@ -32,7 +32,6 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
   ) {
     await verify(Dutch_Auction.address);
   }
-
 };
 
 module.exports.tags = ["all", "DA"];
