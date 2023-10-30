@@ -61,6 +61,7 @@ const {
           );
         });
       });
+
       describe("Adding Buyers Function Unit Test", function () {
         it("Adds the Buyers correctly", async () => {
           await Store_u_1.createBuyer("Buyer_1");
@@ -109,6 +110,7 @@ const {
           assert.equal(response4, "Product_1");
         });
       });
+
       describe("Adding Sellers and Products Followed by a Buyer buying it", function () {
         beforeEach(async () => {
           await Store_u_1.createSeller("Seller_1");
@@ -155,9 +157,292 @@ const {
           assert.equal(response1, 1);
 
           const userOneBalanceEnd = await ethers.provider.getBalance(userOne);
-          //To account for gas price changes
+          //TODO: To account for gas price changes
           assert.equal(userTwoBalanceStart - userTwoBalanceEnd, 100); //Buyer has 100 wei less
           assert.equal(userOneBalanceEnd - userOneBalanceStart, 100); //Seller has 100 wei more
+        });
+      });
+
+      describe("Adding Sellers and Products Followed by a Buyer buying it and reviewing it", function () {
+        beforeEach(async () => {
+          await Store_u_1.createSeller("Seller_1");
+          await Store_u_1.uploadProduct("Product_1", 100);
+          await Store_u_2.createBuyer("Buyer_1");
+          await Store_u_2.purchaseProduct(1, userOne, {
+            value: ethers.parseEther("0.0000000000000001"),
+          });
+        });
+        it("Buyer does not exist in buyerReview(1)", async () => {
+          await expect(Store_u_3.buyerReview(4, 0)).to.be.revertedWith(
+            "This buyer does not exist!"
+          ); //using seller address
+        });
+        it("Buyer does not exist in buyerReview(2)", async () => {
+          await expect(Store_u_1.buyerReview(4, 0)).to.be.revertedWith(
+            "This buyer does not exist!"
+          ); //using non existent address
+        });
+        it("TransactionID does not exist in buyerReview", async () => {
+          await expect(Store_u_2.buyerReview(4, 0)).to.be.revertedWith(
+            "Buyer does not have this transaction ID!"
+          ); //using seller address
+        });
+        it("TransactionID does not exist in buyerReview", async () => {
+          await expect(Store_u_2.buyerReview(4, 2)).to.be.revertedWith(
+            "Buyer does not have this transaction ID!"
+          ); //using seller address
+        });
+        it("Review is properly updated", async () => {
+          await Store_u_2.buyerReview(4, 1);
+          const response0 = await Store_d.viewProductReview(userOne, 1);
+          assert.equal(response0, 4);
+        });
+      });
+
+      describe("Adding Sellers and Products Followed by a Buyer buying it and reviewing it", function () {
+        //before each event make sure that the seller has created 3 products
+        //before each event make sure that the buyer has created an account
+        beforeEach(async () => {
+          await Store_u_1.createSeller("Seller_1");
+          await Store_u_1.uploadProduct("Product_1", 100);
+          await Store_u_1.uploadProduct("Product_2", 200);
+          await Store_u_1.uploadProduct("Product_3", 300);
+          await Store_u_2.createBuyer("Buyer_1");
+          await Store_u_2.purchaseProduct(1, userOne, {
+            value: ethers.parseEther("0.0000000000000001"),
+          });
+          await Store_u_2.purchaseProduct(2, userOne, {
+            value: ethers.parseEther("0.0000000000000002"),
+          });
+          await Store_u_2.purchaseProduct(3, userOne, {
+            value: ethers.parseEther("0.0000000000000003"),
+          });
+        });
+        it("Buyer reviews all three products properly", async () => {
+          await Store_u_2.buyerReview(4, 1); //for transaction one and product one
+          const response0 = await Store_d.viewProductReview(userOne, 1);
+          assert.equal(response0, 4);
+
+          await Store_u_2.buyerReview(5, 2); //for transaction two and product two
+          const response1 = await Store_d.viewProductReview(userOne, 2);
+          assert.equal(response1, 5);
+
+          await Store_u_2.buyerReview(3, 3); //for transaction three and product three
+          const response2 = await Store_d.viewProductReview(userOne, 3);
+          assert.equal(response2, 3);
+        });
+        it("Buyer tries to review the product again", async () => {
+          await Store_u_2.buyerReview(4, 1); //for transaction one and product one
+          const response0 = await Store_d.viewProductReview(userOne, 1);
+          assert.equal(response0, 4);
+
+          await Store_u_2.buyerReview(5, 2); //for transaction two and product two
+          const response1 = await Store_d.viewProductReview(userOne, 2);
+          assert.equal(response1, 5);
+
+          await Store_u_2.buyerReview(3, 3); //for transaction three and product three
+          const response2 = await Store_d.viewProductReview(userOne, 3);
+          assert.equal(response2, 3);
+
+          await expect(Store_u_2.buyerReview(4, 1)).to.be.revertedWith(
+            "Buyer already reviewed this transaction ID!"
+          );
+          await expect(Store_u_2.buyerReview(3, 2)).to.be.revertedWith(
+            "Buyer already reviewed this transaction ID!"
+          );
+          await expect(Store_u_2.buyerReview(2, 3)).to.be.revertedWith(
+            "Buyer already reviewed this transaction ID!"
+          );
+        });
+      });
+
+      describe("Buyer buys two of the same product from the same seller", function () {
+        //before each event make sure that the seller has created 3 products
+        //before each event make sure that the buyer has created an account
+        beforeEach(async () => {
+          await Store_u_1.createSeller("Seller_1");
+          await Store_u_1.uploadProduct("Product_1", 100);
+          await Store_u_1.uploadProduct("Product_2", 200);
+          await Store_u_1.uploadProduct("Product_3", 300);
+          await Store_u_2.createBuyer("Buyer_1");
+          await Store_u_2.purchaseProduct(1, userOne, {
+            value: ethers.parseEther("0.0000000000000001"),
+          });
+          await Store_u_2.purchaseProduct(2, userOne, {
+            value: ethers.parseEther("0.0000000000000002"),
+          });
+          await Store_u_2.purchaseProduct(1, userOne, {
+            value: ethers.parseEther("0.0000000000000001"),
+          });
+        });
+
+        it("Buyer reviews all three products properly", async () => {
+          await Store_u_2.buyerReview(5, 1); //for transaction one and product one
+          const response0 = await Store_d.viewProductReview(userOne, 1);
+          assert.equal(response0, 5);
+
+          await Store_u_2.buyerReview(5, 2); //for transaction two and product two
+          const response1 = await Store_d.viewProductReview(userOne, 2);
+          assert.equal(response1, 5);
+
+          await Store_u_2.buyerReview(3, 3); //for transaction three and product one
+          //(5+3)/2 = 4
+          const response2 = await Store_d.viewProductReview(userOne, 1);
+          assert.equal(response2, 4);
+        });
+
+        it("Buyer tries to review the product again", async () => {
+          await Store_u_2.buyerReview(5, 1); //for transaction one and product one
+          const response0 = await Store_d.viewProductReview(userOne, 1);
+          assert.equal(response0, 5);
+
+          await Store_u_2.buyerReview(5, 2); //for transaction two and product two
+          const response1 = await Store_d.viewProductReview(userOne, 2);
+          assert.equal(response1, 5);
+
+          await Store_u_2.buyerReview(3, 3); //for transaction three and product one
+          //(5+3)/2 = 8/2 = 4
+          const response2 = await Store_d.viewProductReview(userOne, 1);
+          assert.equal(response2, 4);
+
+          await expect(Store_u_2.buyerReview(4, 1)).to.be.revertedWith(
+            "Buyer already reviewed this transaction ID!"
+          );
+          await expect(Store_u_2.buyerReview(3, 2)).to.be.revertedWith(
+            "Buyer already reviewed this transaction ID!"
+          );
+          await expect(Store_u_2.buyerReview(2, 3)).to.be.revertedWith(
+            "Buyer already reviewed this transaction ID!"
+          );
+        });
+
+        it("Buyer reviews but total review is odd divided by an even number", async () => {
+          await Store_u_2.buyerReview(4, 1); //for transaction one and product one
+          const response0 = await Store_d.viewProductReview(userOne, 1);
+          assert.equal(response0, 4);
+
+          await Store_u_2.buyerReview(5, 2); //for transaction two and product two
+          const response1 = await Store_d.viewProductReview(userOne, 2);
+          assert.equal(response1, 5);
+
+          await Store_u_2.buyerReview(3, 3); //for transaction three and product one
+          //(4+3)/2 = 3 (floor division)
+          const response2 = await Store_d.viewProductReview(userOne, 1);
+          assert.equal(response2, 3);
+        });
+      });
+
+      describe("Buyer buys two of products from two different sellers but with the same ID", function () {
+        //before each event make sure that the seller has created 3 products
+        //before each event make sure that the buyer has created an account
+        beforeEach(async () => {
+          await Store_u_1.createSeller("Seller_1");
+          await Store_u_1.uploadProduct("Product_1", 100);
+          await Store_u_3.createSeller("Seller_2");
+          await Store_u_3.uploadProduct("Product_1", 200);
+          await Store_u_2.createBuyer("Buyer_1");
+          await Store_u_2.purchaseProduct(1, userOne, {
+            value: ethers.parseEther("0.0000000000000001"),
+          });
+          await Store_u_2.purchaseProduct(1, userThree, {
+            value: ethers.parseEther("0.0000000000000002"),
+          });
+        });
+
+        it("Buyer reviews both products properly", async () => {
+          await Store_u_2.buyerReview(5, 1); //for transaction one and product one
+          const response0 = await Store_d.viewProductReview(userOne, 1);
+          assert.equal(response0, 5);
+
+          await Store_u_2.buyerReview(4, 2); //for transaction two and product two
+          const response1 = await Store_d.viewProductReview(userThree, 1);
+          assert.equal(response1, 4);
+        });
+
+        it("Buyer tries to review the product again", async () => {
+          await Store_u_2.buyerReview(5, 1); //for transaction one and product one
+          const response0 = await Store_d.viewProductReview(userOne, 1);
+          assert.equal(response0, 5);
+
+          await Store_u_2.buyerReview(4, 2); //for transaction two and product two
+          const response1 = await Store_d.viewProductReview(userThree, 1);
+          assert.equal(response1, 4);
+
+          await expect(Store_u_2.buyerReview(3, 1)).to.be.revertedWith(
+            "Buyer already reviewed this transaction ID!"
+          );
+          await expect(Store_u_2.buyerReview(3, 2)).to.be.revertedWith(
+            "Buyer already reviewed this transaction ID!"
+          );
+        });
+
+        it("Buyer reviews the wrong transaction", async () => {
+          await Store_u_2.buyerReview(5, 1); //for transaction one and product one
+          const response0 = await Store_d.viewProductReview(userOne, 1);
+          assert.equal(response0, 5);
+
+          await expect(Store_u_2.buyerReview(4, 3)).to.be.revertedWith(
+            "Buyer does not have this transaction ID!"
+          );
+        });
+      });
+      describe("Two buyers buy the same product from the same seller", function () {
+        //before each event make sure that the seller has created 3 products
+        //before each event make sure that the buyer has created an account
+        beforeEach(async () => {
+          await Store_u_1.createSeller("Seller_1");
+          await Store_u_1.uploadProduct("Product_1", 100);
+
+          await Store_u_2.createBuyer("Buyer_1");
+          await Store_u_2.purchaseProduct(1, userOne, {
+            value: ethers.parseEther("0.0000000000000001"),
+          });
+
+          await Store_u_3.createBuyer("Buyer_2");
+          await Store_u_3.purchaseProduct(1, userOne, {
+            value: ethers.parseEther("0.0000000000000001"),
+          });
+        });
+
+        it("Both Buyers reviews products properly", async () => {
+          await Store_u_2.buyerReview(5, 1); //for transaction one and product one
+          const response0 = await Store_d.viewProductReview(userOne, 1);
+          assert.equal(response0, 5);
+
+          await Store_u_3.buyerReview(4, 1); //for transaction two and product two
+          const response1 = await Store_d.viewProductReview(userOne, 1);
+          assert.equal(response1, 4);
+        });
+
+        it("Buyer tries to review the product again", async () => {
+          await Store_u_2.buyerReview(5, 1); //for transaction one and product one
+          const response0 = await Store_d.viewProductReview(userOne, 1);
+          assert.equal(response0, 5);
+
+          await Store_u_3.buyerReview(4, 1); //for transaction two and product two
+          const response1 = await Store_d.viewProductReview(userOne, 1);
+          assert.equal(response1, 4);
+
+          await expect(Store_u_2.buyerReview(3, 1)).to.be.revertedWith(
+            "Buyer already reviewed this transaction ID!"
+          );
+          await expect(Store_u_3.buyerReview(3, 1)).to.be.revertedWith(
+            "Buyer already reviewed this transaction ID!"
+          );
+        });
+
+        it("Buyer reviews the wrong transaction", async () => {
+          await Store_u_2.buyerReview(5, 1); //for transaction one and product one
+          const response0 = await Store_d.viewProductReview(userOne, 1);
+          assert.equal(response0, 5);
+
+          await expect(Store_u_3.buyerReview(4, 3)).to.be.revertedWith(
+            "Buyer does not have this transaction ID!"
+          );
+
+          await expect(Store_u_3.buyerReview(4, 0)).to.be.revertedWith(
+            "Buyer does not have this transaction ID!"
+          );
         });
       });
     });

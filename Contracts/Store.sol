@@ -4,7 +4,6 @@ pragma solidity ^0.8.21;
 contract Store {
     uint256 private totalSellers = 0;
     uint256 private totalBuyers = 0;
-
     //----- Structs -----
 
     struct Product {
@@ -207,12 +206,27 @@ contract Store {
         );
     }
 
+    event buyerReviewEvent(
+        uint256 productID,
+        address sellerAddress,
+        address buyerAddress,
+        uint256 buyerRating,
+        uint256 timeStamp,
+        uint256 finalProductRating,
+        uint256 totalReviews
+    );
+
     function buyerReview(uint256 buyerRating, uint256 txnID) public {
         require(buyersList[msg.sender].isExist, "This buyer does not exist!");
 
         require(
             buyersList[msg.sender].txnMade[txnID].isExist,
-            "Buyer does not have this transaction ID"
+            "Buyer does not have this transaction ID!"
+        );
+
+        require(
+            buyersList[msg.sender].txnMade[txnID].reviewed == false,
+            "Buyer already reviewed this transaction ID!"
         );
 
         address sellerAddress = buyersList[msg.sender]
@@ -226,20 +240,32 @@ contract Store {
             .productID;
 
         sellersList[sellerAddress].sellerProducts[productID].review =
-            ((buyersList[msg.sender].txnMade[txnID].purchasedProduct.review *
-                buyersList[msg.sender]
-                    .txnMade[txnID]
-                    .purchasedProduct
-                    .numOfReviewsGiven) + buyerRating) /
-            (buyersList[msg.sender]
-                .txnMade[txnID]
-                .purchasedProduct
+            (sellersList[sellerAddress].sellerProducts[productID].review *
+                sellersList[sellerAddress]
+                    .sellerProducts[productID]
+                    .numOfReviewsGiven +
+                buyerRating) /
+            (sellersList[sellerAddress]
+                .sellerProducts[productID]
                 .numOfReviewsGiven + 1);
 
-        buyersList[msg.sender]
-            .txnMade[txnID]
-            .purchasedProduct
+        sellersList[sellerAddress]
+            .sellerProducts[productID]
             .numOfReviewsGiven++;
+
+        buyersList[msg.sender].txnMade[txnID].reviewed = true;
+
+        emit buyerReviewEvent(
+            productID,
+            sellerAddress,
+            msg.sender,
+            buyerRating,
+            block.timestamp,
+            sellersList[sellerAddress].sellerProducts[productID].review,
+            sellersList[sellerAddress]
+                .sellerProducts[productID]
+                .numOfReviewsGiven
+        );
     }
 
     /* View and Pure Functions */
