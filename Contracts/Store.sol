@@ -1,9 +1,23 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
+import "./Math.sol";
+
 contract Store {
     uint256 private totalSellers = 0;
     uint256 private totalBuyers = 0;
+    uint256 private immutable A_VALUE_S = 50;
+    uint256 private immutable B_VALUE_S = 300;
+    uint256 private immutable C_VALUE_S = 900;
+    uint256 private immutable BETA_S = 1;
+    uint256 private immutable A_VALUE = 50;
+    uint256 private immutable B_VALUE = 100;
+    uint256 private immutable C_VALUE = 300;
+    uint256 private immutable BETA_1 = 99;
+    uint256 private immutable BETA_2 = 4000;
+
+    Math private MathLib; //importing Token
+    address private MathLibAddress;
     //----- Structs -----
 
     struct Product {
@@ -95,6 +109,11 @@ contract Store {
         uint256 totalReviews
     );
 
+    constructor() {
+        MathLib = new Math();
+        MathLibAddress = address(MathLib);
+    }
+
     function createSeller(string memory _sellerName) public {
         require(
             !sellersList[msg.sender].isExist,
@@ -104,7 +123,7 @@ contract Store {
         //set the variables
         newSeller.sellerAddress = msg.sender;
         newSeller.sellerName = _sellerName;
-        newSeller.sellerID = ++totalSellers;
+        newSeller.sellerID = ++totalSellers; //TODO: convert to wad
         newSeller.isExist = true;
         newSeller.totalProducts = 0;
         newSeller.totalRevenue = 0;
@@ -127,7 +146,7 @@ contract Store {
         //set the variables
         newBuyer.buyerAddress = msg.sender;
         newBuyer.buyerName = _buyerName;
-        newBuyer.buyerID = ++totalBuyers;
+        newBuyer.buyerID = ++totalBuyers; //TODO: convert to wad
         newBuyer.isExist = true;
         newBuyer.numOfReviewsGiven = 0;
         newBuyer.numOfTxn = 0;
@@ -194,7 +213,7 @@ contract Store {
         );
         require(callSuccess, "Failed to send ether");
 
-        uint256 txnID = ++buyersList[msg.sender].numOfTxn;
+        uint256 txnID = ++buyersList[msg.sender].numOfTxn; //TODO: convert to wad
 
         Transaction storage newTxn = buyersList[msg.sender].txnMade[txnID];
         newTxn.txnID = txnID;
@@ -206,9 +225,9 @@ contract Store {
         newTxn.isExist = true;
         buyersList[msg.sender].txnMade[txnID] = newTxn;
 
-        sellersList[sellerAddress].sellerProducts[productID].totalSold++;
-        sellersList[sellerAddress].totalRevenue += msg.value;
-        sellersList[sellerAddress].numOfSales += 1;
+        sellersList[sellerAddress].sellerProducts[productID].totalSold++; //TODO: convert to wad
+        sellersList[sellerAddress].totalRevenue += msg.value; //TODO: convert to wad
+        sellersList[sellerAddress].numOfSales += 1; //TODO: convert to wad
 
         emit purchasedProductsEvent(
             txnID,
@@ -252,6 +271,8 @@ contract Store {
                 .sellerProducts[productID]
                 .numOfReviewsGiven + 1);
 
+        //TODO: convert to wad
+
         sellersList[sellerAddress]
             .sellerProducts[productID]
             .numOfReviewsGiven++;
@@ -270,6 +291,29 @@ contract Store {
                 .numOfReviewsGiven
         );
     }
+
+    function calculateReview_Product(
+        uint256 oldX,
+        uint256 repScore,
+        uint256 rincoming,
+        uint256 raverage
+    ) public view returns (uint256 rating) {
+        uint256 newX = MathLib.calculateX_Seller(
+            oldX,
+            repScore,
+            rincoming,
+            raverage,
+            BETA_S
+        );
+        rating = MathLib.calculateRating_Seller(
+            A_VALUE_S,
+            B_VALUE_S,
+            C_VALUE_S,
+            newX
+        );
+    }
+
+    function calculateRepScore_Buyer() public view returns (uint256 rep) {}
 
     /* View and Pure Functions */
 
