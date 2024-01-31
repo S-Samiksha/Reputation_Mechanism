@@ -12,8 +12,6 @@ using FixedPointMathLib for uint256;
 using FixedPointMathLib for int256;
 
 contract Math {
-    uint256 number;
-
     function mul(uint256 a, uint256 b) public pure returns (uint256 c) {
         c = a.mulWad(b);
         return c;
@@ -38,6 +36,8 @@ contract Math {
         return c;
     }
 
+    //TODO: the overflow condition check
+    // Follow safemath coding structure
     function sub(int256 a, int256 b) public pure returns (int256 c) {
         c = a.rawSub(b);
         return c;
@@ -82,13 +82,13 @@ contract Math {
         uint256 temp2 = sqrt(uint256(add(temp1, c)));
 
         //3. if x-b is more than 0 do the normal division
-        if (sub(x, b) > 0) {
+        if (x > b) {
             uint256 temp3 = div(uint256(sub(x, b)), temp2);
             uint256 temp4 = uint256(add(int256(temp3), 1 * (10 ** 18)));
             uint256 temp5 = mul(temp4, a);
             rep = temp5;
             return rep;
-        } else if (sub(x, b) < 0) {
+        } else if (x < b) {
             uint256 temp3 = div(uint256(abs2(sub(x, b))), temp2);
             uint256 temp4 = mul(temp3, a);
             uint256 temp5 = uint256(sub(int256(a), int256(temp4)));
@@ -102,13 +102,13 @@ contract Math {
         uint256 xold_int,
         int256 b_int,
         int256 beta2_int
-    ) public pure returns (uint256 rep) {
+    ) public pure returns (uint256 w1) {
         //by default b_int is 12
 
         //check the 0 condition
         if (delta_T == b_int) {
-            rep = 0 * (10 ** 18);
-            return rep;
+            w1 = 0 * (10 ** 18);
+            return w1;
         }
 
         //convert to fixedpointmathlib format
@@ -125,8 +125,8 @@ contract Math {
             uint256 temp2 = sqrt(uint256(add(temp1, beta2)));
 
             uint256 temp3 = div(uint256(sub(delta_T, b)), temp2);
-            rep = mul(temp3, xold);
-            return rep;
+            w1 = mul(temp3, xold);
+            return w1;
         } else if (b > delta_T) {
             //1. calculate (x-b) then abs then power
             int256 temp1 = pow0(int256(abs2(sub(b, delta_T))), 2 * (10 ** 18));
@@ -135,8 +135,60 @@ contract Math {
             uint256 temp2 = sqrt(uint256(add(temp1, beta2)));
 
             uint256 temp3 = div(uint256(abs2(sub(b, delta_T))), temp2);
-            rep = mul(temp3, xold);
-            return rep;
+            w1 = mul(temp3, xold);
+            return w1;
+        }
+    }
+
+    function lnPrice(
+        uint256 price,
+        uint256 xold_int
+    ) public pure returns (uint256 w2) {
+        int256 priceWad = int256(div(price, 10 ** 18)); //convert to wad and obtain in decimal places
+        uint256 xold = xold_int * (10 ** 18);
+        priceWad = add(priceWad, 1 * (10 ** 18));
+        w2 = uint256(priceWad.lnWad());
+        w2 = mul(w2, xold);
+        return w2;
+    }
+
+    function ratingDiff(
+        uint256 betas_int,
+        int256 rincoming_int,
+        int256 raverage_int,
+        uint256 repscore_int,
+        uint256 xold_int
+    ) public pure returns (uint256 w1) {
+        if (rincoming_int > raverage_int) {
+            uint256 Rdiff = uint256(
+                sub(rincoming_int * (10 ** 18), raverage_int * (10 ** 18))
+            );
+            int256 temp1 = int256(div(betas_int * (10 ** 18), Rdiff));
+            uint256 temp2 = div(
+                mul(
+                    uint256(add(temp1, 1 * (10 ** 18))),
+                    repscore_int * (10 ** 18)
+                ),
+                1000 * (10 ** 18)
+            );
+            w1 = mul(temp2, xold_int * (10 ** 18));
+            return w1;
+        } else if (rincoming_int < raverage_int) {
+            uint256 Rdiff = uint256(
+                sub(raverage_int * (10 ** 18), rincoming_int * (10 ** 18))
+            );
+            int256 temp1 = int256(div(betas_int * (10 ** 18), Rdiff));
+            uint256 temp2 = div(
+                mul(
+                    uint256(add(temp1, 1 * (10 ** 18))),
+                    repscore_int * (10 ** 18)
+                ),
+                1000 * (10 ** 18)
+            );
+            w1 = mul(temp2, xold_int * (10 ** 18));
+            return w1;
+        } else {
+            return 0;
         }
     }
 }
