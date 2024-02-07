@@ -107,6 +107,15 @@ contract Math {
         }
     }
 
+    function decay(
+        uint256 timepassed,
+        uint256 oldX,
+        uint256 BETA_1
+    ) public pure returns (uint256 w) {
+        //Assumes timepassed is in wad
+        w = mul(pow0(div(BETA_1, 100 * (10 ** 18)), timepassed), oldX);
+    }
+
     function deltaT(
         uint256 delta_T,
         uint256 xold,
@@ -213,7 +222,7 @@ contract Math {
         );
     }
 
-    function calculateRating_Seller(
+    function sigmoidal_calc(
         uint256 A_VALUE,
         uint256 B_VALUE,
         uint256 C_VALUE,
@@ -227,6 +236,50 @@ contract Math {
         );
     }
 
-    //TODO: buyer reputation score
-    //TODO: decay function
+    function calculateX_Buyer(
+        uint256 oldX,
+        uint256 timeFromInActivity,
+        uint256 price,
+        uint256 timeFromLastReview,
+        uint256 BETA_1,
+        uint256 BETA_2,
+        uint256 b
+    ) public pure returns (uint256 newX) {
+        //when storing the oldX, rep_score --> stored in Wad format
+        //must convert the timepassed, deltaT, Beta1, Beta2, b and price into wad format
+        if (timeFromLastReview >= b) {
+            uint256 temp = add(
+                decay(
+                    timeFromInActivity * (10 ** 18),
+                    oldX,
+                    BETA_1 * (10 ** 18)
+                ),
+                deltaT(
+                    timeFromLastReview * (10 ** 18),
+                    oldX,
+                    b * (10 ** 18),
+                    BETA_2 * (10 ** 18)
+                )
+            );
+            newX = add(temp, lnPrice(price, oldX));
+        } else {
+            uint256 temp = add(
+                decay(
+                    timeFromInActivity * (10 ** 18),
+                    oldX,
+                    BETA_1 * (10 ** 18)
+                ),
+                lnPrice(price, oldX)
+            );
+            newX = sub(
+                temp,
+                deltaT(
+                    timeFromLastReview * (10 ** 18),
+                    oldX,
+                    b * (10 ** 18),
+                    BETA_2 * (10 ** 18)
+                )
+            );
+        }
+    }
 }

@@ -15,6 +15,7 @@ contract Store {
     uint256 private immutable C_VALUE = 300;
     uint256 private immutable BETA_1 = 99;
     uint256 private immutable BETA_2 = 4000;
+    uint256 private immutable B_TOLERANCE = 12;
 
     Math private MathLib; //importing Token
     address private MathLibAddress;
@@ -29,6 +30,7 @@ contract Store {
         bool isExist; //flag to determin whether the product exists TODO: figure out a better way
         uint256 numOfReviewsGiven;
         uint256 review;
+        uint256 X_VALUE;
     }
 
     struct Transaction {
@@ -58,6 +60,8 @@ contract Store {
         mapping(uint256 => Transaction) txnMade;
         uint256 numOfTxn;
         uint256 numOfReviewsGiven;
+        uint256 repScore;
+        uint256 X_Value;
     }
 
     //----- Mappings -----
@@ -80,7 +84,8 @@ contract Store {
     event createBuyerEvent(
         string buyerName,
         address buyerAddress,
-        uint256 buyerID
+        uint256 buyerID,
+        uint256 repScore
     );
 
     event uploadProductEvent(
@@ -150,11 +155,14 @@ contract Store {
         newBuyer.isExist = true;
         newBuyer.numOfReviewsGiven = 0;
         newBuyer.numOfTxn = 0;
+        newBuyer.X_Value = 1 * (10 ** 18);
+        newBuyer.repScore = 0;
 
         emit createBuyerEvent(
             newBuyer.buyerName,
             newBuyer.buyerAddress,
-            newBuyer.buyerID
+            newBuyer.buyerID,
+            newBuyer.repScore
         );
     }
 
@@ -176,6 +184,8 @@ contract Store {
         newProduct.sellerAddress = msg.sender;
         newProduct.productPrice = price;
         newProduct.totalSold = 0;
+        newProduct.review = 0;
+        newProduct.X_VALUE = 1 * (10 ** 18);
         newProduct.isExist = true;
 
         currentSeller.sellerProducts[currentSeller.totalProducts] = newProduct;
@@ -213,7 +223,7 @@ contract Store {
         );
         require(callSuccess, "Failed to send ether");
 
-        uint256 txnID = ++buyersList[msg.sender].numOfTxn; //TODO: convert to wad
+        uint256 txnID = ++buyersList[msg.sender].numOfTxn;
 
         Transaction storage newTxn = buyersList[msg.sender].txnMade[txnID];
         newTxn.txnID = txnID;
@@ -225,9 +235,9 @@ contract Store {
         newTxn.isExist = true;
         buyersList[msg.sender].txnMade[txnID] = newTxn;
 
-        sellersList[sellerAddress].sellerProducts[productID].totalSold++; //TODO: convert to wad
-        sellersList[sellerAddress].totalRevenue += msg.value; //TODO: convert to wad
-        sellersList[sellerAddress].numOfSales += 1; //TODO: convert to wad
+        sellersList[sellerAddress].sellerProducts[productID].totalSold++;
+        sellersList[sellerAddress].totalRevenue += msg.value;
+        sellersList[sellerAddress].numOfSales += 1;
 
         emit purchasedProductsEvent(
             txnID,
@@ -261,17 +271,9 @@ contract Store {
             .purchasedProduct
             .productID;
 
-        sellersList[sellerAddress].sellerProducts[productID].review =
-            (sellersList[sellerAddress].sellerProducts[productID].review *
-                sellersList[sellerAddress]
-                    .sellerProducts[productID]
-                    .numOfReviewsGiven +
-                buyerRating) /
-            (sellersList[sellerAddress]
-                .sellerProducts[productID]
-                .numOfReviewsGiven + 1);
-
-        //TODO: convert to wad
+        //TODO: Caculation of reputation score
+        //TODO: Calculation of review score
+        sellersList[sellerAddress].sellerProducts[productID].review = 10;
 
         sellersList[sellerAddress]
             .sellerProducts[productID]
@@ -305,15 +307,33 @@ contract Store {
             raverage,
             BETA_S
         );
-        rating = MathLib.calculateRating_Seller(
-            A_VALUE_S,
-            B_VALUE_S,
-            C_VALUE_S,
-            newX
-        );
+        rating = MathLib.sigmoidal_calc(A_VALUE_S, B_VALUE_S, C_VALUE_S, newX);
     }
 
-    function calculateRepScore_Buyer() public view returns (uint256 rep) {}
+    function calculateRepScore_Buyer(
+        uint256 oldX,
+        uint256 timeFromInActivity,
+        uint256 price,
+        uint256 timeFromLastReview
+    ) public view returns (uint256 rep) {
+        if (timeFromInActivity > 16 * 24) {
+            timeFromInActivity = 16;
+        } else {
+            timeFromInActivity = timeFromInActivity / 24; //convert to days
+        }
+
+        uint256 newX = MathLib.calculateX_Buyer(
+            oldX,
+            timeFromInActivity,
+            price,
+            timeFromLastReview,
+            BETA_1,
+            BETA_2,
+            B_TOLERANCE
+        );
+
+        rep = MathLib.sigmoidal_calc(A_VALUE, B_VALUE, C_VALUE, newX);
+    }
 
     /* View and Pure Functions */
 
