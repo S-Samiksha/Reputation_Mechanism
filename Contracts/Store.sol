@@ -4,6 +4,7 @@ pragma solidity ^0.8.21;
 import "./Math.sol";
 
 contract Store {
+    /**/
     uint256 private totalSellers = 0;
     uint256 private totalBuyers = 0;
     uint256 private immutable A_VALUE_S = 50;
@@ -15,7 +16,7 @@ contract Store {
     uint256 private immutable C_VALUE = 300;
     uint256 private immutable BETA_1 = 99;
     uint256 private immutable BETA_2 = 4000;
-    uint256 private immutable B_TOLERANCE = 12;
+    uint256 private immutable B_TOLERANCE = 12; //hours
 
     Math private MathLib; //importing Token
     address private MathLibAddress;
@@ -35,8 +36,10 @@ contract Store {
 
     struct Transaction {
         uint256 txnID;
-        uint256 timeStamp;
-        Product purchasedProduct;
+        uint256 timeStampBought;
+        uint256 timeStampReviewed;
+        uint256 purchasedProductID;
+        address sellerAddress;
         bool reviewed;
         bool isExist;
     }
@@ -60,6 +63,7 @@ contract Store {
         mapping(uint256 => Transaction) txnMade;
         uint256 numOfTxn;
         uint256 numOfReviewsGiven;
+        uint256 lastReviewTime;
         uint256 repScore;
         uint256 X_Value;
     }
@@ -114,6 +118,7 @@ contract Store {
         uint256 totalReviews
     );
 
+    /* Constructor to deploy the math library */
     constructor() {
         MathLib = new Math();
         MathLibAddress = address(MathLib);
@@ -157,6 +162,7 @@ contract Store {
         newBuyer.numOfTxn = 0;
         newBuyer.X_Value = 1 * (10 ** 18);
         newBuyer.repScore = 0;
+        newBuyer.lastReviewTime = block.timestamp;
 
         emit createBuyerEvent(
             newBuyer.buyerName,
@@ -216,8 +222,6 @@ contract Store {
             "Ethers not enough/too much to buy the product!"
         );
 
-        //TODO: figure out the gas txn fee
-
         (bool callSuccess, ) = (payable(sellerAddress)).call{value: msg.value}(
             ""
         );
@@ -227,10 +231,9 @@ contract Store {
 
         Transaction storage newTxn = buyersList[msg.sender].txnMade[txnID];
         newTxn.txnID = txnID;
-        newTxn.timeStamp = block.timestamp;
-        newTxn.purchasedProduct = sellersList[sellerAddress].sellerProducts[
-            productID
-        ]; //push the sellers product into the transaction list
+        newTxn.timeStampBought = block.timestamp;
+        newTxn.purchasedProductID = productID;
+        newTxn.sellerAddress = sellerAddress;
         newTxn.reviewed = false;
         newTxn.isExist = true;
         buyersList[msg.sender].txnMade[txnID] = newTxn;
@@ -263,16 +266,68 @@ contract Store {
 
         address sellerAddress = buyersList[msg.sender]
             .txnMade[txnID]
-            .purchasedProduct
             .sellerAddress;
 
         uint256 productID = buyersList[msg.sender]
             .txnMade[txnID]
-            .purchasedProduct
-            .productID;
+            .purchasedProductID;
 
-        //TODO: Caculation of reputation score
+        uint256 price = sellersList[sellerAddress]
+            .sellerProducts[productID]
+            .productPrice;
+
+        /*
+        For testing purposes, a time lapse of 1 minute is made to become 1 hour 
+        60 seconds --> divide by 60 --> 1 min 
+        12min is 12 hours
+        13 min is 13 hours 
+        */
+        uint256 timepassed = (block.timestamp -
+            buyersList[msg.sender].lastReviewTime) / 60; //convert seconds to minutes then to hours
+
+        uint256 lastReviewTime = 0;
+        for (uint256 i = buyersList[msg.sender].numOfTxn; i >= 1; i--) {
+            if (
+                buyersList[msg.sender].txnMade[txnID].sellerAddress ==
+                sellerAddress &&
+                buyersList[msg.sender].txnMade[txnID].purchasedProductID ==
+                productID &&
+                buyersList[msg.sender].txnMade[txnID].reviewed
+            ) {
+                lastReviewTime = buyersList[msg.sender]
+                    .txnMade[txnID]
+                    .timeStampReviewed;
+                break;
+            }
+        }
+
+        if (lastReviewTime == 0) {
+            //means the buyer has never reviewed the product before
+            //add weightage of 0
+            lastReviewTime = B_TOLERANCE;
+        } else {
+            //convert to hours
+            /*
+            For testing purposes, a time lapse of 1 minute is made to become 1 hour 
+            60 seconds --> divide by 60 --> 1 min 
+            12min is 12 hours
+            13 min is 13 hours 
+            */
+            lastReviewTime = (block.timestamp - lastReviewTime) / 60;
+        }
+
+        buyersList[msg.sender].X_Value = calculateXValue_Buyer(
+            buyersList[msg.sender].X_Value,
+            timepassed,
+            price,
+            lastReviewTime
+        );
+        buyersList[msg.sender].repScore = calculateRepScore_Buyer(
+            buyersList[msg.sender].X_Value
+        );
+
         //TODO: Calculation of review score
+
         sellersList[sellerAddress].sellerProducts[productID].review = 10;
 
         sellersList[sellerAddress]
@@ -280,6 +335,8 @@ contract Store {
             .numOfReviewsGiven++;
 
         buyersList[msg.sender].txnMade[txnID].reviewed = true;
+        buyersList[msg.sender].txnMade[txnID].timeStampReviewed = block
+            .timestamp;
 
         emit buyerReviewEvent(
             productID,
@@ -294,35 +351,44 @@ contract Store {
         );
     }
 
-    function calculateReview_Product(
+    /* Calculation of reputation scores and review scores*/
+
+    function calculateXValue_Product(
         uint256 oldX,
         uint256 repScore,
         uint256 rincoming,
         uint256 raverage
-    ) public view returns (uint256 rating) {
-        uint256 newX = MathLib.calculateX_Seller(
+    ) public view returns (uint256 newX) {
+        newX = MathLib.calculateX_Seller(
             oldX,
             repScore,
             rincoming,
             raverage,
             BETA_S
         );
-        rating = MathLib.sigmoidal_calc(A_VALUE_S, B_VALUE_S, C_VALUE_S, newX);
     }
 
-    function calculateRepScore_Buyer(
+    function calculateReview_Product(
+        uint256 newX
+    ) public view returns (uint256 rating) {
+        rating = MathLib.sigmoidal_calc(A_VALUE_S, B_VALUE_S, C_VALUE_S, newX);
+        return rating;
+    }
+
+    function calculateXValue_Buyer(
         uint256 oldX,
         uint256 timeFromInActivity,
         uint256 price,
         uint256 timeFromLastReview
-    ) public view returns (uint256 rep) {
+    ) public view returns (uint256 newX) {
+        //in days
         if (timeFromInActivity > 16 * 24) {
             timeFromInActivity = 16;
         } else {
             timeFromInActivity = timeFromInActivity / 24; //convert to days
         }
 
-        uint256 newX = MathLib.calculateX_Buyer(
+        newX = MathLib.calculateX_Buyer(
             oldX,
             timeFromInActivity,
             price,
@@ -332,7 +398,15 @@ contract Store {
             B_TOLERANCE
         );
 
+        return newX;
+    }
+
+    function calculateRepScore_Buyer(
+        uint256 newX
+    ) public view returns (uint256 rep) {
         rep = MathLib.sigmoidal_calc(A_VALUE, B_VALUE, C_VALUE, newX);
+
+        return rep;
     }
 
     /* View and Pure Functions */
@@ -453,11 +527,7 @@ contract Store {
         );
         //check whether the product exists
         //return the price
-        return
-            buyersList[_buyerAddress]
-                .txnMade[_txnID]
-                .purchasedProduct
-                .productID;
+        return buyersList[_buyerAddress].txnMade[_txnID].purchasedProductID;
     }
 
     function viewTransactions_SellerID(
@@ -475,11 +545,10 @@ contract Store {
         );
         //check whether the product exists
         //return the price
-        Product memory productBought = buyersList[_buyerAddress]
-            .txnMade[_txnID]
-            .purchasedProduct;
 
-        address sellerAddress = productBought.sellerAddress;
+        address sellerAddress = buyersList[_buyerAddress]
+            .txnMade[_txnID]
+            .sellerAddress;
 
         uint256 sellerID = sellersList[sellerAddress].sellerID;
 

@@ -159,7 +159,7 @@ contract Math {
         }
     }
 
-    function lnPrice(
+    function lnPricer(
         uint256 price,
         uint256 xold
     ) public pure returns (uint256 w2) {
