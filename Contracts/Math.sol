@@ -159,7 +159,7 @@ contract Math {
         }
     }
 
-    function lnPricer(
+    function lnPrice(
         uint256 price,
         uint256 xold
     ) public pure returns (uint256 w2) {
@@ -199,6 +199,16 @@ contract Math {
         } else {
             return 0;
         }
+    }
+
+    function calculateReview(
+        uint256 repscore,
+        uint256 price
+    ) public pure returns (uint256 reward) {
+        uint256 priceWad = div(price, 10 ** 18); //convert to decimal places
+        // 10% of the price multiplied by the reputation score
+        reward = div(mul(priceWad, repscore), 10 * 10 ** 18);
+        return reward;
     }
 
     function calculateX_Seller(

@@ -4,7 +4,6 @@ pragma solidity ^0.8.21;
 import "./Math.sol";
 
 contract Store {
-    /**/
     uint256 private totalSellers = 0;
     uint256 private totalBuyers = 0;
     uint256 private immutable A_VALUE_S = 50;
@@ -31,7 +30,7 @@ contract Store {
         bool isExist; //flag to determin whether the product exists TODO: figure out a better way
         uint256 numOfReviewsGiven;
         uint256 review;
-        uint256 X_VALUE;
+        uint256 X_Value;
     }
 
     struct Transaction {
@@ -191,7 +190,7 @@ contract Store {
         newProduct.productPrice = price;
         newProduct.totalSold = 0;
         newProduct.review = 0;
-        newProduct.X_VALUE = 1 * (10 ** 18);
+        newProduct.X_Value = 1 * (10 ** 18);
         newProduct.isExist = true;
 
         currentSeller.sellerProducts[currentSeller.totalProducts] = newProduct;
@@ -316,6 +315,7 @@ contract Store {
             lastReviewTime = (block.timestamp - lastReviewTime) / 60;
         }
 
+        //update XValue and Reputation Score of Buyers
         buyersList[msg.sender].X_Value = calculateXValue_Buyer(
             buyersList[msg.sender].X_Value,
             timepassed,
@@ -326,9 +326,20 @@ contract Store {
             buyersList[msg.sender].X_Value
         );
 
-        //TODO: Calculation of review score
-
-        sellersList[sellerAddress].sellerProducts[productID].review = 10;
+        //Update X value and Reputation score of sellers
+        sellersList[sellerAddress]
+            .sellerProducts[productID]
+            .X_Value = calculateXValue_Product(
+            sellersList[sellerAddress].sellerProducts[productID].X_Value,
+            buyersList[msg.sender].repScore,
+            buyerRating,
+            sellersList[sellerAddress].sellerProducts[productID].review
+        );
+        sellersList[sellerAddress]
+            .sellerProducts[productID]
+            .review = calculateReview_Product(
+            sellersList[sellerAddress].sellerProducts[productID].X_Value
+        );
 
         sellersList[sellerAddress]
             .sellerProducts[productID]
@@ -351,14 +362,19 @@ contract Store {
         );
     }
 
-    /* Calculation of reputation scores and review scores*/
+    /* Calculation of reputation scores, review scores and incentive*/
+
+    // function calculateIncentive(uint256 repscore, uint256 price) private{
+    //     uint256 reward = MathLib.calculateReview(repscore, price); //this is in wei
+
+    // }
 
     function calculateXValue_Product(
         uint256 oldX,
         uint256 repScore,
         uint256 rincoming,
         uint256 raverage
-    ) public view returns (uint256 newX) {
+    ) private view returns (uint256 newX) {
         newX = MathLib.calculateX_Seller(
             oldX,
             repScore,
@@ -370,7 +386,7 @@ contract Store {
 
     function calculateReview_Product(
         uint256 newX
-    ) public view returns (uint256 rating) {
+    ) private view returns (uint256 rating) {
         rating = MathLib.sigmoidal_calc(A_VALUE_S, B_VALUE_S, C_VALUE_S, newX);
         return rating;
     }
@@ -380,7 +396,7 @@ contract Store {
         uint256 timeFromInActivity,
         uint256 price,
         uint256 timeFromLastReview
-    ) public view returns (uint256 newX) {
+    ) private view returns (uint256 newX) {
         //in days
         if (timeFromInActivity > 16 * 24) {
             timeFromInActivity = 16;
@@ -403,7 +419,7 @@ contract Store {
 
     function calculateRepScore_Buyer(
         uint256 newX
-    ) public view returns (uint256 rep) {
+    ) private view returns (uint256 rep) {
         rep = MathLib.sigmoidal_calc(A_VALUE, B_VALUE, C_VALUE, newX);
 
         return rep;
@@ -528,6 +544,24 @@ contract Store {
         //check whether the product exists
         //return the price
         return buyersList[_buyerAddress].txnMade[_txnID].purchasedProductID;
+    }
+
+    function viewTransactions_Reviewed(
+        address _buyerAddress,
+        uint256 _txnID
+    ) public view returns (bool) {
+        require(
+            buyersList[_buyerAddress].isExist,
+            "Buyer with this wallet does not exists! "
+        );
+
+        require(
+            buyersList[_buyerAddress].txnMade[_txnID].isExist,
+            "Txn ID in the seller does not exists! "
+        );
+        //check whether the product exists
+        //return the price
+        return buyersList[_buyerAddress].txnMade[_txnID].reviewed;
     }
 
     function viewTransactions_SellerID(
