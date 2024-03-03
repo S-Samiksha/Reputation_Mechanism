@@ -5,7 +5,7 @@ async function main() {
   const Store = await ethers.getContract("Store", userTwo);
   console.log(`Got contract Store at ${Store.target}`);
   console.log("Buying product...");
-  const transactionResponse = await Store.buyerReview(4, 1);
+  const transactionResponse = await Store.buyerReview(74, 1);
   await transactionResponse.wait();
   console.log("Review Left!");
 }

@@ -7,7 +7,7 @@ pragma solidity >=0.8.2 <0.9.0;
  * @dev For the mathematical functions required in the project
  */
 
-import "https://github.com/Vectorized/solady/blob/main/src/utils/FixedPointMathLib.sol";
+import "../node_modules/solady/src/utils/FixedPointMathLib.sol";
 using FixedPointMathLib for uint256;
 using FixedPointMathLib for int256;
 
