@@ -11,13 +11,18 @@ module.exports = async function () {
   if (process.env.UPDATE_FRONT_END) {
     console.log("Updating front end...");
     updateContractAddresses();
-    updateABI();
+    // updateABI();
   }
 };
 
 async function updateABI() {
-  const Store = await ethers.getContract("Store");
-  fs.writeFileSync(FRONT_END_ABI_FILE, JSON.stringify(Store.interface));
+  const file = fs.readFileSync(
+    "./artifacts/contracts/Store.sol/Store.json",
+    "utf8"
+  );
+  const json = JSON.parse(file);
+  const abi = json.abi;
+  fs.writeFileSync(FRONT_END_ABI_FILE, JSON.stringify(abi));
 }
 
 async function updateContractAddresses() {

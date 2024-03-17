@@ -123,7 +123,7 @@ contract Store {
         MathLibAddress = address(MathLib);
     }
 
-    function createSeller(string memory _sellerName) public {
+    function createSeller(string memory inputSellerName) public {
         require(
             !sellersList[msg.sender].isExist,
             "Seller with this wallet already exists!"
@@ -131,7 +131,7 @@ contract Store {
         Seller storage newSeller = sellersList[msg.sender]; //get the object
         //set the variables
         newSeller.sellerAddress = msg.sender;
-        newSeller.sellerName = _sellerName;
+        newSeller.sellerName = inputSellerName;
         newSeller.sellerID = ++totalSellers; //TODO: convert to wad
         newSeller.isExist = true;
         newSeller.totalProducts = 0;
