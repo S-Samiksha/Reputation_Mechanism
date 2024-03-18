@@ -2,6 +2,7 @@
 pragma solidity ^0.8.21;
 
 import "./Math.sol";
+import "hardhat/console.sol";
 
 contract Store {
     uint256 private totalSellers = 0;
@@ -123,7 +124,7 @@ contract Store {
         MathLibAddress = address(MathLib);
     }
 
-    function createSeller(string memory inputSellerName) public {
+    function createSeller(string memory _sellerName) public {
         require(
             !sellersList[msg.sender].isExist,
             "Seller with this wallet already exists!"
@@ -131,7 +132,7 @@ contract Store {
         Seller storage newSeller = sellersList[msg.sender]; //get the object
         //set the variables
         newSeller.sellerAddress = msg.sender;
-        newSeller.sellerName = inputSellerName;
+        newSeller.sellerName = _sellerName;
         newSeller.sellerID = ++totalSellers; //TODO: convert to wad
         newSeller.isExist = true;
         newSeller.totalProducts = 0;
@@ -144,6 +145,8 @@ contract Store {
             newSeller.sellerAddress,
             newSeller.sellerID
         );
+
+        console.log("Seller Created at:", msg.sender);
     }
 
     function createBuyer(string memory _buyerName) public {
@@ -207,7 +210,7 @@ contract Store {
     function purchaseProduct(
         uint256 productID,
         address sellerAddress
-    ) public payable {
+    ) public payable returns (uint256 txnID) {
         require(buyersList[msg.sender].isExist, "This buyer does not exist!");
         require(
             sellersList[sellerAddress].sellerProducts[productID].isExist,
@@ -248,6 +251,8 @@ contract Store {
             msg.sender,
             sellersList[sellerAddress].sellerProducts[productID].productPrice
         );
+
+        return txnID;
     }
 
     function buyerReview(uint256 buyerRating, uint256 txnID) public {
