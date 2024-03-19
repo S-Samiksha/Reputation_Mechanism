@@ -210,7 +210,7 @@ contract Store {
     function purchaseProduct(
         uint256 productID,
         address sellerAddress
-    ) public payable returns (uint256 txnID) {
+    ) public payable{
         require(buyersList[msg.sender].isExist, "This buyer does not exist!");
         require(
             sellersList[sellerAddress].sellerProducts[productID].isExist,
@@ -252,7 +252,6 @@ contract Store {
             sellersList[sellerAddress].sellerProducts[productID].productPrice
         );
 
-        return txnID;
     }
 
     function buyerReview(uint256 buyerRating, uint256 txnID) public {
@@ -460,6 +459,16 @@ contract Store {
         return sellersList[_sellerAddress].sellerName;
     }
 
+    function retrieveSellerTotalProducts(
+        address _sellerAddress
+    ) public view returns (uint256) {
+        require(
+            sellersList[_sellerAddress].isExist,
+            "Seller with this wallet does not exists! "
+        );
+        return sellersList[_sellerAddress].totalProducts;
+    }
+
     function retrieveBuyerID(
         address _buyerAddress
     ) public view returns (uint256) {
@@ -593,4 +602,6 @@ contract Store {
 
         return sellerID;
     }
+
+
 }
