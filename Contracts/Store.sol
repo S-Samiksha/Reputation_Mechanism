@@ -5,6 +5,8 @@ import "./Math.sol";
 import "hardhat/console.sol";
 
 contract Store {
+
+    ///--- Private Variables ---
     uint256 private totalSellers = 0;
     uint256 private totalBuyers = 0;
     uint256 private immutable A_VALUE_S = 50;
@@ -20,6 +22,8 @@ contract Store {
 
     Math private MathLib; //importing Token
     address private MathLibAddress;
+
+
     //----- Structs -----
 
     struct Product {
@@ -28,7 +32,7 @@ contract Store {
         address sellerAddress; // The product object has a sellerAddress reference
         uint256 productPrice; //in wei
         uint256 totalSold;
-        bool isExist; //flag to determin whether the product exists TODO: figure out a better way
+        bool isExist; //flag to determin whether the product exists 
         uint256 numOfReviewsGiven;
         uint256 review;
         uint256 X_Value;
@@ -41,6 +45,7 @@ contract Store {
         uint256 purchasedProductID;
         address sellerAddress;
         bool reviewed;
+        bool receivedIncentive;
         bool isExist;
     }
 
@@ -48,8 +53,8 @@ contract Store {
         address sellerAddress;
         string sellerName;
         uint256 sellerID;
-        bool isExist; //flag to determine whether the Seller exists TODO: find a better way
-        mapping(uint256 => Product) sellerProducts; //using the productID to obtain the product ; TODO: can we use a string instead?
+        bool isExist; //flag to determine whether the Seller exists
+        mapping(uint256 => Product) sellerProducts; //using the productID to obtain the product ; 
         uint256 totalProducts;
         uint256 totalRevenue;
         uint256 numOfSales;
@@ -58,8 +63,8 @@ contract Store {
     struct Buyer {
         address buyerAddress;
         string buyerName;
-        uint256 buyerID; //TODO: figure out the difference between uint and uint256
-        bool isExist; //flag to determine whether the buyer exists TODO: figure out a better way
+        uint256 buyerID; 
+        bool isExist; //flag to determine whether the buyer exists 
         mapping(uint256 => Transaction) txnMade;
         uint256 numOfTxn;
         uint256 numOfReviewsGiven;
@@ -70,15 +75,19 @@ contract Store {
 
     //----- Mappings -----
 
-    //Maps user address to Seller or Buyer account structs
-    // TODO: can we merge this with the object itself?
+    // Maps user address to Seller or Buyer account structs
     // Mapping buyerAddress to array of Products that they bought
     // mapping(address => Product[]) public buyerPurchasedProducts;
 
     mapping(address => Seller) public sellersList;
     mapping(address => Buyer) public buyersList;
 
+
     //-----Events -----
+
+    // Events allow for Etherscan.io to pick up on any state change in the contract. 
+    // Note: Events have nothing to do with the FrontEnd UI built using react
+
     event createSellerEvent(
         string sellerName,
         address sellerAddress,
@@ -118,11 +127,23 @@ contract Store {
         uint256 totalReviews
     );
 
+    event incentiveReceived(
+        uint256 txnID,
+        address buyerAddress, 
+        address sellerAddress, 
+        uint256 reward 
+        
+    )
+
     /* Constructor to deploy the math library */
     constructor() {
         MathLib = new Math();
         MathLibAddress = address(MathLib);
     }
+
+    /**
+    The create seller function allows the wallet to register itself as a seller and give themselves a name
+     */
 
     function createSeller(string memory _sellerName) public {
         require(
@@ -133,7 +154,7 @@ contract Store {
         //set the variables
         newSeller.sellerAddress = msg.sender;
         newSeller.sellerName = _sellerName;
-        newSeller.sellerID = ++totalSellers; //TODO: convert to wad
+        newSeller.sellerID = ++totalSellers; 
         newSeller.isExist = true;
         newSeller.totalProducts = 0;
         newSeller.totalRevenue = 0;
@@ -149,6 +170,11 @@ contract Store {
         console.log("Seller Created at:", msg.sender);
     }
 
+
+
+    /**
+    The create buyer function allows the wallet to register itself as a buyer and give themselves a name
+     */
     function createBuyer(string memory _buyerName) public {
         require(
             !buyersList[msg.sender].isExist,
@@ -174,14 +200,19 @@ contract Store {
         );
     }
 
+
+    /**
+    The upload product function allows for a registered seller to upload a product with a product name and price in wei
+     */
     function uploadProduct(string memory _productName, uint256 price) public {
+
         //only the currently connected wallet + must be registered seller can create products
         require(
             sellersList[msg.sender].isExist,
             "Seller with this wallet does not exists!"
         );
 
-        Seller storage currentSeller = sellersList[msg.sender]; //TODO: why is it storage?
+        Seller storage currentSeller = sellersList[msg.sender]; 
 
         Product storage newProduct = currentSeller.sellerProducts[
             ++currentSeller.totalProducts
@@ -206,6 +237,10 @@ contract Store {
             currentSeller.sellerID
         );
     }
+
+    /**
+    The purchase product function allows registered wallets to purchase a product 
+     */
 
     function purchaseProduct(
         uint256 productID,
@@ -237,6 +272,7 @@ contract Store {
         newTxn.purchasedProductID = productID;
         newTxn.sellerAddress = sellerAddress;
         newTxn.reviewed = false;
+        newTxn.receivedIncentive = false;
         newTxn.isExist = true;
         buyersList[msg.sender].txnMade[txnID] = newTxn;
 
@@ -253,6 +289,10 @@ contract Store {
         );
 
     }
+
+    /**
+    The buyer review function allows for a registered buyer who has already made a purchase to leave a review 
+     */
 
     function buyerReview(uint256 buyerRating, uint256 txnID) public {
         require(buyersList[msg.sender].isExist, "This buyer does not exist!");
@@ -288,7 +328,11 @@ contract Store {
         uint256 timepassed = (block.timestamp -
             buyersList[msg.sender].lastReviewTime) / 60; //convert seconds to minutes then to hours
 
-        uint256 lastReviewTime = 0;
+        uint256 lastReviewTime = 0; //set back to 0
+
+        /**
+        try to find the last reviewtime of the same ProductID and same seller 
+         */
         for (uint256 i = buyersList[msg.sender].numOfTxn; i >= 1; i--) {
             if (
                 buyersList[msg.sender].txnMade[txnID].sellerAddress ==
@@ -307,16 +351,20 @@ contract Store {
         if (lastReviewTime == 0) {
             //means the buyer has never reviewed the product before
             //add weightage of 0
-            lastReviewTime = B_TOLERANCE;
+            timeSinceLastReview = B_TOLERANCE;
         } else {
-            //convert to hours
+            // convert to hours
+            // block.timstamp is in seconds 
             /*
             For testing purposes, a time lapse of 1 minute is made to become 1 hour 
             60 seconds --> divide by 60 --> 1 min 
             12min is 12 hours
             13 min is 13 hours 
+
+            For the actual purpose, 
+            (seconds - x )/60/60
             */
-            lastReviewTime = (block.timestamp - lastReviewTime) / 60;
+            timeSinceLastReview = (block.timestamp - lastReviewTime) / 60;
         }
 
         //update XValue and Reputation Score of Buyers
@@ -324,7 +372,8 @@ contract Store {
             buyersList[msg.sender].X_Value,
             timepassed,
             price,
-            lastReviewTime
+            timeSinceLastReview
+            
         );
         buyersList[msg.sender].repScore = calculateRepScore_Buyer(
             buyersList[msg.sender].X_Value
@@ -352,6 +401,7 @@ contract Store {
         buyersList[msg.sender].txnMade[txnID].reviewed = true;
         buyersList[msg.sender].txnMade[txnID].timeStampReviewed = block
             .timestamp;
+        buyersList[msg.sender].lastReviewTime = block.timestamp;
 
         emit buyerReviewEvent(
             productID,
@@ -364,14 +414,91 @@ contract Store {
                 .sellerProducts[productID]
                 .numOfReviewsGiven
         );
+        
     }
 
-    /* Calculation of reputation scores, review scores and incentive*/
+    /**
+    The send incentive function allows a registered seller to send an incentive to the buyer who has left them a review 
+     */
 
-    // function calculateIncentive(uint256 repscore, uint256 price) private{
-    //     uint256 reward = MathLib.calculateReview(repscore, price); //this is in wei
 
-    // }
+    function sendIncentive(address buyerAddress, uint256 txnID) public payable{
+        //obtain all the values first
+        require(buyersList[buyerAddress].isExist, "This buyer does not exist!");
+
+        require(
+            buyersList[msg.sender].txnMade[txnID].isExist,
+            "Buyer does not have this transaction ID!"
+        );
+
+        require(
+            buyersList[msg.sender].txnMade[txnID].receivedIncentive == false,
+            "Buyer already got incentive for this transaction ID!"
+        );
+
+        address sellerAddress = buyersList[msg.sender]
+            .txnMade[txnID]
+            .sellerAddress;
+
+        require(msg.sender == sellerAddress, "You did not sell to this buyer!");
+
+        uint256 productID = buyersList[msg.sender]
+            .txnMade[txnID]
+            .purchasedProductID;
+     
+        require(
+            sellersList[msg.sender].sellerProducts[productID].isExist,
+            "The Product does not exist!"
+        );
+
+        uint256 price = sellersList[sellerAddress]
+            .sellerProducts[productID]
+            .productPrice;
+
+        uint256 repscore = buyersList[msg.sender].repScore;
+
+        uint256 reward = MathLib.calculateReview(repscore, price); //this is in wei
+
+        
+        require(
+            msg.value > reward,
+            "Ethers not enough/too much to buy the product!"
+        );
+
+        (bool callSuccess, ) = (payable(buyerAddress)).call{value: reward}(
+            ""
+        );
+        require(callSuccess, "Failed to send ether");
+
+        
+        uint256 remainder = msg.value-reward;
+
+        (bool callSuccessTwo, ) = (payable(msg.sender)).call{value: remainder}(
+            ""
+        );
+        require(callSuccessTwo, "Failed to return remaining ether");
+
+        
+        buyersList[msg.sender].txnMade[txnID].receivedIncentive = true; 
+
+        emit incentiveReceived(
+        txnID,
+        buyerAddress, 
+        sellerAddress, 
+        reward 
+        
+        );
+
+
+
+    }
+
+    /**
+    Calculation of reputation scores and review scores
+    These are all private functions and not available from outside contract.
+    These functions cannot be called by the front end. 
+    */
+
 
     function calculateXValue_Product(
         uint256 oldX,
@@ -429,7 +556,14 @@ contract Store {
         return rep;
     }
 
-    /* View and Pure Functions */
+
+
+
+
+    /**
+     View and Pure Functions 
+     To access the private variables via the front end
+     */
 
     function retrieveTotalBuyers() public view returns (uint256) {
         return totalBuyers;
@@ -467,6 +601,26 @@ contract Store {
             "Seller with this wallet does not exists! "
         );
         return sellersList[_sellerAddress].totalProducts;
+    }
+
+    function retrieveBuyerTotalTransactions(
+        address _buyerAddress
+    ) public view returns (uint256) {
+        require(
+            buyersList[_buyerAddress].isExist,
+            "Buyer with this wallet does not exists! "
+        );
+        return buyersList[_buyerAddress].numOfTxn;
+    }
+
+    function retrieveBuyerRepScore(
+        address _buyerAddress
+    ) public view returns (uint256) {
+        require(
+            buyersList[_buyerAddress].isExist,
+            "Buyer with this wallet does not exists! "
+        );
+        return buyersList[_buyerAddress].repScore;
     }
 
     function retrieveBuyerID(
@@ -601,6 +755,29 @@ contract Store {
         uint256 sellerID = sellersList[sellerAddress].sellerID;
 
         return sellerID;
+    }
+
+    function viewTransactions_SellerAddress(
+        address _buyerAddress,
+        uint256 _txnID
+    ) public view returns (address sellerAddress) {
+        require(
+            buyersList[_buyerAddress].isExist,
+            "Buyer with this wallet does not exists! "
+        );
+
+        require(
+            buyersList[_buyerAddress].txnMade[_txnID].isExist,
+            "Txn ID in the seller does not exists! "
+        );
+        //check whether the product exists
+        //return the price
+
+        sellerAddress = buyersList[_buyerAddress]
+            .txnMade[_txnID]
+            .sellerAddress;
+
+        return sellerAddress;
     }
 
 
