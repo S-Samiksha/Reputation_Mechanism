@@ -44,7 +44,6 @@ contract Math {
         return c;
     }
 
-    //TODO: the overflow condition check
     // Follow safemath coding structure
     function sub(uint256 a, uint256 b) public pure returns (uint256 c) {
         require(b <= a);
@@ -182,7 +181,7 @@ contract Math {
             uint256 Rdiff = sub(rincoming_int, raverage_int);
             uint256 temp1 = div(betas_int, Rdiff);
             uint256 temp2 = div(
-                mul(add(temp1, 1 * (10 ** 18)), repscore_int),
+                mul(temp1, repscore_int),
                 1000 * (10 ** 18)
             );
             w1 = mul(temp2, xold_int);
@@ -191,7 +190,7 @@ contract Math {
             uint256 Rdiff = sub(raverage_int, rincoming_int);
             uint256 temp1 = div(betas_int, Rdiff);
             uint256 temp2 = div(
-                mul(add(temp1, 1 * (10 ** 18)), repscore_int),
+                mul(temp1, repscore_int),
                 1000 * (10 ** 18)
             );
             w1 = mul(temp2, xold_int);
@@ -201,7 +200,7 @@ contract Math {
         }
     }
 
-    function calculateReview(
+    function calculateReward(
         uint256 repscore,
         uint256 price
     ) public pure returns (uint256 reward) {
@@ -220,6 +219,7 @@ contract Math {
     ) public pure returns (uint256 newX) {
         //when storing the oldX, rep_score --> stored in Wad format
         //must convert the rincoming, raverage and betas into wad format
+        if (rincoming>raverage){
         newX = add(
             oldX,
             ratingDiff(
@@ -229,7 +229,19 @@ contract Math {
                 rep_score,
                 oldX
             )
+        );}
+        else{
+            newX = sub(
+            oldX,
+            ratingDiff(
+                BETA_S * (10 ** 18),
+                rincoming * (10 ** 18),
+                raverage * (10 ** 18),
+                rep_score,
+                oldX
+            )
         );
+        }
     }
 
     function sigmoidal_calc(

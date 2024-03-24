@@ -79,8 +79,9 @@ contract Store {
     // Mapping buyerAddress to array of Products that they bought
     // mapping(address => Product[]) public buyerPurchasedProducts;
 
-    mapping(address => Seller) public sellersList;
-    mapping(address => Buyer) public buyersList;
+    mapping(address => Seller) private sellersList;
+    mapping(address => Buyer) private buyersList;
+    mapping(uint256 => address) private sellersListByID;
 
 
     //-----Events -----
@@ -133,7 +134,7 @@ contract Store {
         address sellerAddress, 
         uint256 reward 
         
-    )
+    );
 
     /* Constructor to deploy the math library */
     constructor() {
@@ -151,6 +152,7 @@ contract Store {
             "Seller with this wallet already exists!"
         );
         Seller storage newSeller = sellersList[msg.sender]; //get the object
+
         //set the variables
         newSeller.sellerAddress = msg.sender;
         newSeller.sellerName = _sellerName;
@@ -161,11 +163,15 @@ contract Store {
         newSeller.numOfSales = 0;
 
         // sellersList[msg.sender] = newSeller;
+
+        sellersListByID[newSeller.sellerID] = newSeller.sellerAddress;
         emit createSellerEvent(
             newSeller.sellerName,
             newSeller.sellerAddress,
             newSeller.sellerID
         );
+
+        
 
         console.log("Seller Created at:", msg.sender);
     }
@@ -348,6 +354,7 @@ contract Store {
             }
         }
 
+        uint256 timeSinceLastReview = 0; //declare variable 
         if (lastReviewTime == 0) {
             //means the buyer has never reviewed the product before
             //add weightage of 0
@@ -424,40 +431,12 @@ contract Store {
 
     function sendIncentive(address buyerAddress, uint256 txnID) public payable{
         //obtain all the values first
-        require(buyersList[buyerAddress].isExist, "This buyer does not exist!");
-
-        require(
-            buyersList[msg.sender].txnMade[txnID].isExist,
-            "Buyer does not have this transaction ID!"
-        );
-
-        require(
-            buyersList[msg.sender].txnMade[txnID].receivedIncentive == false,
-            "Buyer already got incentive for this transaction ID!"
-        );
+        uint256 reward = calculateIncentive(buyerAddress, txnID);
 
         address sellerAddress = buyersList[msg.sender]
             .txnMade[txnID]
             .sellerAddress;
 
-        require(msg.sender == sellerAddress, "You did not sell to this buyer!");
-
-        uint256 productID = buyersList[msg.sender]
-            .txnMade[txnID]
-            .purchasedProductID;
-     
-        require(
-            sellersList[msg.sender].sellerProducts[productID].isExist,
-            "The Product does not exist!"
-        );
-
-        uint256 price = sellersList[sellerAddress]
-            .sellerProducts[productID]
-            .productPrice;
-
-        uint256 repscore = buyersList[msg.sender].repScore;
-
-        uint256 reward = MathLib.calculateReview(repscore, price); //this is in wei
 
         
         require(
@@ -557,8 +536,45 @@ contract Store {
     }
 
 
+    function calculateIncentive(address buyerAddress, uint256 txnID) public view returns (uint256 reward){
+        require(buyersList[buyerAddress].isExist, "This buyer does not exist!");
 
+        require(
+            buyersList[msg.sender].txnMade[txnID].isExist,
+            "Buyer does not have this transaction ID!"
+        );
 
+        require(
+            buyersList[msg.sender].txnMade[txnID].receivedIncentive == false,
+            "Buyer already got incentive for this transaction ID!"
+        );
+
+        address sellerAddress = buyersList[msg.sender]
+            .txnMade[txnID]
+            .sellerAddress;
+
+        require(msg.sender == sellerAddress, "You did not sell to this buyer!");
+
+        uint256 productID = buyersList[msg.sender]
+            .txnMade[txnID]
+            .purchasedProductID;
+     
+        require(
+            sellersList[msg.sender].sellerProducts[productID].isExist,
+            "The Product does not exist!"
+        );
+
+        uint256 price = sellersList[sellerAddress]
+            .sellerProducts[productID]
+            .productPrice;
+
+        uint256 repscore = buyersList[msg.sender].repScore;
+
+        reward = MathLib.calculateReward(repscore, price);
+
+        return reward
+    
+    }
 
     /**
      View and Pure Functions 
@@ -778,6 +794,12 @@ contract Store {
             .sellerAddress;
 
         return sellerAddress;
+    }
+
+    function retrieveSellerAddress(
+        uint256 sellerID
+    ) public view returns (address sellerAddress){
+        return sellersListByID[sellerID];
     }
 
 
