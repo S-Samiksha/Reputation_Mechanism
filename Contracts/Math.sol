@@ -69,6 +69,10 @@ contract Math {
         uint256 b,
         uint256 c
     ) public pure returns (uint256 rep) {
+
+        if (x>1000000000*10**18){
+            x=1000000000*10**18;
+        }
         //check the 0 condition
         if (x == b) {
             rep = a * (10 ** 18);
