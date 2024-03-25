@@ -52,7 +52,8 @@
     "babel-eslint": "^10.1.0",
     "dotenv": "^10.0.0",
     "prompt-sync": "^4.2.0",
-    "solady": "^0.0.168"
+    "solady": "^0.0.168",
+    "solidity-docgen": "^0.6.0-beta.36"
   },
   "mocha": {
     "timeout": 10000000

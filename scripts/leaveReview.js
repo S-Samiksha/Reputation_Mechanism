@@ -4,8 +4,8 @@ async function main() {
   const { userTwo } = await getNamedAccounts();
   const Store = await ethers.getContract("Store", userTwo);
   console.log(`Got contract Store at ${Store.target}`);
-  console.log("Buying product...");
-  const transactionResponse = await Store.buyerReview(74, 1);
+  console.log("Leaving Review...");
+  const transactionResponse = await Store.buyerReview(60, 2);
   await transactionResponse.wait();
   console.log("Review Left!");
 }

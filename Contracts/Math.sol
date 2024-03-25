@@ -11,6 +11,7 @@ import "../node_modules/solady/src/utils/FixedPointMathLib.sol";
 using FixedPointMathLib for uint256;
 using FixedPointMathLib for int256;
 
+
 contract Math {
     /**
      * @dev basic mathematical functions
@@ -223,7 +224,7 @@ contract Math {
         newX = add(
             oldX,
             ratingDiff(
-                BETA_S * (10 ** 18),
+                div(BETA_S * (10 ** 18), 10*(10 ** 18)), //obtaining 0.1 by doing 1/10
                 rincoming * (10 ** 18),
                 raverage * (10 ** 18),
                 rep_score,
@@ -234,7 +235,7 @@ contract Math {
             newX = sub(
             oldX,
             ratingDiff(
-                BETA_S * (10 ** 18),
+                div(BETA_S * (10 ** 18), 10*(10 ** 18)),
                 rincoming * (10 ** 18),
                 raverage * (10 ** 18),
                 rep_score,

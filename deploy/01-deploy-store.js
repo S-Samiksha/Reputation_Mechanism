@@ -30,8 +30,8 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     !developmentChains.includes(network.name) &&
     process.env.ETHERSCAN_API_KEY
   ) {
-    await verify(Dutch_Auction.address);
+    await verify(Store.address);
   }
 };
 
-module.exports.tags = ["all", "DA"];
+module.exports.tags = ["all", "Store"];

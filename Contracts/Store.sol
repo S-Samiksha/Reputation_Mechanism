@@ -5,6 +5,7 @@ import "./Math.sol";
 import "hardhat/console.sol";
 
 contract Store {
+    //REPUTATION MECHANISM
 
     ///--- Private Variables ---
     uint256 private totalSellers = 0;
@@ -132,7 +133,9 @@ contract Store {
         uint256 txnID,
         address buyerAddress, 
         address sellerAddress, 
-        uint256 reward 
+        uint256 reward, 
+        uint256 sellerRefund, 
+        uint256 RepScore
         
     );
 
@@ -433,7 +436,7 @@ contract Store {
         //obtain all the values first
         uint256 reward = calculateIncentive(buyerAddress, txnID);
 
-        address sellerAddress = buyersList[msg.sender]
+        address sellerAddress = buyersList[buyerAddress]
             .txnMade[txnID]
             .sellerAddress;
 
@@ -458,18 +461,18 @@ contract Store {
         require(callSuccessTwo, "Failed to return remaining ether");
 
         
-        buyersList[msg.sender].txnMade[txnID].receivedIncentive = true; 
+        buyersList[buyerAddress].txnMade[txnID].receivedIncentive = true; 
+        uint256 repscore = buyersList[buyerAddress].repScore;
 
         emit incentiveReceived(
         txnID,
         buyerAddress, 
         sellerAddress, 
-        reward 
+        reward,
+        remainder, 
+        repscore
         
         );
-
-
-
     }
 
     /**
@@ -540,22 +543,22 @@ contract Store {
         require(buyersList[buyerAddress].isExist, "This buyer does not exist!");
 
         require(
-            buyersList[msg.sender].txnMade[txnID].isExist,
+            buyersList[buyerAddress].txnMade[txnID].isExist,
             "Buyer does not have this transaction ID!"
         );
 
         require(
-            buyersList[msg.sender].txnMade[txnID].receivedIncentive == false,
+            buyersList[buyerAddress].txnMade[txnID].receivedIncentive == false,
             "Buyer already got incentive for this transaction ID!"
         );
 
-        address sellerAddress = buyersList[msg.sender]
+        address sellerAddress = buyersList[buyerAddress]
             .txnMade[txnID]
             .sellerAddress;
 
         require(msg.sender == sellerAddress, "You did not sell to this buyer!");
 
-        uint256 productID = buyersList[msg.sender]
+        uint256 productID = buyersList[buyerAddress]
             .txnMade[txnID]
             .purchasedProductID;
      
@@ -568,11 +571,13 @@ contract Store {
             .sellerProducts[productID]
             .productPrice;
 
-        uint256 repscore = buyersList[msg.sender].repScore;
+        uint256 repscore = buyersList[buyerAddress].repScore;
 
         reward = MathLib.calculateReward(repscore, price);
 
-        return reward
+
+
+        return reward;
     
     }
 

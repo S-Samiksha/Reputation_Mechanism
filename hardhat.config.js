@@ -17,7 +17,11 @@ module.exports = {
   networks: {
     sepolia: {
       url: SEPOLIA_RPC_URL,
-      accounts: [SEPOLIA_PRIVATE_KEY, SEPOLIA_PRIVATE_KEY_2],
+      accounts: [
+        SEPOLIA_PRIVATE_KEY,
+        SEPOLIA_PRIVATE_KEY_2,
+        SEPOLIA_PRIVATE_KEY_3,
+      ],
       chainId: 11155111,
       blockConfirmations: 6,
       gas: 5000000,
