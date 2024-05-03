@@ -70,6 +70,7 @@ contract Math {
         uint256 c
     ) public pure returns (uint256 rep) {
 
+        //overflow 
         if (x>1000000000*10**18){
             x=1000000000*10**18;
         }

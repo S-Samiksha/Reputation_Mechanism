@@ -13,7 +13,7 @@ contract Store {
     uint256 private immutable A_VALUE_S = 50;
     uint256 private immutable B_VALUE_S = 300;
     uint256 private immutable C_VALUE_S = 900;
-    uint256 private immutable BETA_S = 1;
+    uint256 private immutable BETA_S = 1; //this will be converted to 0.1
     uint256 private immutable A_VALUE = 50;
     uint256 private immutable B_VALUE = 100;
     uint256 private immutable C_VALUE = 300;
